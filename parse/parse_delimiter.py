@@ -27,7 +27,8 @@ def split_sql(sql: str) -> List[str]:
 def _escape_delimiters(sql: str) -> str:
     if _PLACEHOLDER in sql:
         raise ValueError("unexpected placeholder character in SQL string")
-    new_lines: List[str] = []
+    # new_lines: List[str] = []
+    new_lines = []
     delimiter = ""
     for line in sql.splitlines():
         m = _SQL_DELIMITER_RE.match(line)

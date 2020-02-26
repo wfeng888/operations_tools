@@ -1,6 +1,6 @@
 from typing import Optional
 
-from my_parse.constants import FieldType
+from parse.constants import FieldType
 
 
 class SqlObject(object):
@@ -96,35 +96,35 @@ class Referenced(Relation):
     # _columns:
     pass
 
-# class Action(object):
-#     pass
-#
-# class Modify(Action):
-#     pass
-#
-# class Add(Action):
-#     pass
-#
-# class Drop(Action):
-#     pass
-
 class Operation(object):
 
-    _action:str
-    _verb=[list[str]]
-    # _target:SqlObject
-    # _operation:Optional[Operation]
-    # _sql_statement:str
+    _verb:str
+    _target:SqlObject
+    _operation:Optional[Operation]
+    _sql_statement:str
+
     pass
 
 class Alter(Operation):
-    _verb=('ALTER','MODIFY')
+    _verb='ALTER'
     pass
 
 class Create(Operation):
-    _verb=('CREATE','ADD')
+    _verb='CREATE'
     pass
 
 class Drop(Operation):
     _verb='DROP'
+    pass
+
+class Add(Operation):
+    _verb='ADD'
+    pass
+
+class Modify(Operation):
+    _verb='MODIFY'
+    pass
+
+class Use(Operation):
+    _verb = 'USE'
     pass
