@@ -1,4 +1,4 @@
-use test;
+use `test`;
 create table `student`(
 `id_t1` bigint auto_increment primary key comment '主键',
 `name` varchar(20) not null comment '姓名',
