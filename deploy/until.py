@@ -5,7 +5,7 @@ from re import RegexFlag
 
 # stat_type = {'DDL':1,'DDLS':1,'TABLE':2,'TABLES':2,'VIEW':3,'VIEWS':3,'PROCEDURE':2,'PROCEDURES':2,'FUNCTION':3,'FUNCTIONS':3,'DML':99,'DMLS':99}
 
-
+__all__ = {}
 
 REGEX = [
     (r'(\s)*([0-9]+(\.)*)+(\s)*',lambda x: [int(i) for i in x.split('.')]),
@@ -38,7 +38,7 @@ def _compact(param):
     param.extend(v)
     return param
 
-def gt(p1,p2):
+def _gt(p1,p2):
     p1 = _compact(p1)
     p2 = _compact(p2)
     minsize = min(len(p1),len(p2))
@@ -54,7 +54,7 @@ def partition(arr,low,high):
     tmp = arr[high]
     for j in range(low , high):
         cur = arr[j]
-        if gt(cur , tmp):
+        if _gt(cur , tmp):
             arr[i] = arr[j]
             i = j
     arr[i] = tmp
