@@ -1,3 +1,4 @@
+create database `test`;
 use `test`;
 create table `student`(
 `id_t1` bigint auto_increment primary key comment '主键',

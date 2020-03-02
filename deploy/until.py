@@ -5,7 +5,7 @@ from re import RegexFlag
 
 # stat_type = {'DDL':1,'DDLS':1,'TABLE':2,'TABLES':2,'VIEW':3,'VIEWS':3,'PROCEDURE':2,'PROCEDURES':2,'FUNCTION':3,'FUNCTIONS':3,'DML':99,'DMLS':99}
 
-__all__ = {}
+__all__ = {'list_sqlfile'}
 
 REGEX = [
     (r'(\s)*([0-9]+(\.)*)+(\s)*',lambda x: [int(i) for i in x.split('.')]),
@@ -49,7 +49,7 @@ def _gt(p1,p2):
             return False
     return True if minsize < len(p1) or len(p1) == len(p2) and p1[0] > p2[0] else False
 
-def partition(arr,low,high):
+def _partition(arr,low,high):
     i = high
     tmp = arr[high]
     for j in range(low , high):
@@ -60,14 +60,14 @@ def partition(arr,low,high):
     arr[i] = tmp
     return i
 
-def quickSort(arr,low,high):
+def _quickSort(arr,low,high):
     if low < high:
-        pi = partition(arr,low,high)
-        quickSort(arr, low, pi-1)
-        quickSort(arr, pi+1, high)
+        pi = _partition(arr,low,high)
+        _quickSort(arr, low, pi-1)
+        _quickSort(arr, pi+1, high)
 
-def sort(objs):
-    quickSort(objs,0,len(objs)-1)
+def _sort(objs):
+    _quickSort(objs,0,len(objs)-1)
     return objs
 
 def valid(filepath):
@@ -80,9 +80,7 @@ def list_sqlfile(filepath):
         if base.is_dir():
             curlist = {}
             curdir = os.path.split(filepath)[1]
-            subfiles = os.listdir(filepath)
-            subfiles = [i for i in subfiles if valid(os.path.join(filepath,i))]
-            subfiles = sort(subfiles)
+            subfiles = _sort([i for i in os.listdir(filepath) if valid(os.path.join(filepath,i))])
             subfiles = list(list_sqlfile(os.path.join(filepath,i)) for i in subfiles)
             filterfiles = [i for i in subfiles if i]
             if filterfiles:

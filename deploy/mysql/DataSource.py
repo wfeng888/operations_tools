@@ -1,20 +1,17 @@
-from deploy import mysql as connector
+import mysql.connector  as connector
 from abc import ABCMeta, abstractmethod
 
-from deploy.mysql import InterfaceError
-from deploy.mysql import PooledMySQLConnection,MySQLConnectionPool
+from mysql.connector import InterfaceError
+from mysql.connector.pooling import PooledMySQLConnection,MySQLConnectionPool
 
-from Exceptions import ParamNotMatchException
+from deploy.mysql.Exception import ParamNotMatchException
+
+from deploy.config import CONFIG
 
 
 class AbstractDataSource(metaclass=ABCMeta):
 
     def set_class_attr(self, connParams):
-        # self._host = connParams[1]
-        # self._port = connParams[2]
-        # self._user_name = connParams[3]
-        # self._pass_word = connParams[4]
-        # self._data_base = connParams[5]
         self._conn_params = {'user':connParams[0],'password':connParams[1], \
                              'host':connParams[2],'port':connParams[3],'database':connParams[4]}
 
@@ -63,8 +60,6 @@ class DBUtilPooledDBDataSource(AbstractDataSource):
     def get_conn(self):
         return self._pool.dedicated_connection()
 
-
-
 class MysqlPooledDataSource(AbstractDataSource):
 
     def __init__(self,*args,**kwargs):
@@ -86,3 +81,5 @@ class MysqlPooledDataSource(AbstractDataSource):
 
     def get_conn(self):
         return PooledMySQLConnection(self,self._pool.get_connection())
+
+DATASOURCE = DBUtilPooledDBDataSource(**{'host':CONFIG.host,'port':CONFIG.port,'user':CONFIG.user,'password':CONFIG.password,'database':'mysql'})

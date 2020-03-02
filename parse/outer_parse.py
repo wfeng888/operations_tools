@@ -23,6 +23,13 @@ OPERATION_REGEX = {
     (r'\s+modify\s+',Operation.MODIFY),
 }
 
+def simple_parse(sqlfile):
+    statements = deque()
+    with open(sqlfile,encoding='utf-8') as stream:
+        content = stream.read()
+    for str_stat in split_sql(content):
+        statements.append(str_stat)
+    return statements
 
 if __name__ == '__main__':
     statements = deque()

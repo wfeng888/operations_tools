@@ -46,7 +46,8 @@ def table(self):
 def table(self,table):
     self._table = table
 
-
+def test(funcname):
+    pass
 
 
 class AddAttribute(type):
