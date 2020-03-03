@@ -1,7 +1,4 @@
 from deploy.until import list_sqlfile
-import re
-from re import RegexFlag
-import deploy.config
 from deploy.mysql import  SimpleDeploy
 import time
 

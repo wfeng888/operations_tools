@@ -1,7 +1,7 @@
 from mysql.connector import Error
 
 from parse.outer_parse import simple_parse
-from deploy.config import CONFIG
+from public_module.config import CONFIG
 from deploy.mysql.DataSource import DATASOURCE
 from deploy.mysql import DBUtils
 import time

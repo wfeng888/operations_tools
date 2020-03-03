@@ -1,6 +1,5 @@
 from mysql.connector import Error
 
-from  deploy.config import CONFIG
 from  deploy.mysql.DataSource import DATASOURCE
 
 SQL_CREATE_DATABASE = r'create database {}'

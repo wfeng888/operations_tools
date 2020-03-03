@@ -6,7 +6,7 @@ from mysql.connector.pooling import PooledMySQLConnection,MySQLConnectionPool
 
 from deploy.mysql.Exception import ParamNotMatchException
 
-from deploy.config import CONFIG
+from public_module.config import CONFIG
 
 
 class AbstractDataSource(metaclass=ABCMeta):
