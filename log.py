@@ -9,7 +9,7 @@ class LogLevel(Enum):
     WARNING = 3
     ERROR = 4
 
-currentLevel = LogLevel.WARNING
+currentLevel = LogLevel.DEBUG
 
 def debug(msg):
     if LogLevel.DEBUG.value >= currentLevel.value:
@@ -32,4 +32,4 @@ def error(msg):
         _log_msg(LogLevel.ERROR,msg)
 
 def _log_msg(level:LogLevel,msg:str):
-    print('{} {}:{}'.format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())),currentLevel.name,msg)
+    print('{} {}:{}'.format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),currentLevel.name,msg))

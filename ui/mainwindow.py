@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'mainwindow.ui'
-#
-# Created by: PyQt5 UI code generator 5.14.1
-#
-# WARNING! All changes made in this file will be lost!
-
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from public_module.config import  CONFIG,init_mysqlconfig
+from PyQt5.QtCore import QDir
+from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel
+from deploy.mysql.mysql_exec import execute_createDB
+
+import log
+from public_module.config import CONFIG, init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory
 
 
 class Ui_MainWindow(object):
@@ -62,6 +61,9 @@ class Ui_MainWindow(object):
                      ,'password':self.passwordLineEdit.text().strip(),'database':self.databaseLineEdit.text().strip()}
             print(param)
             init_mysqlconfig(**param)
+            if checkConfigForMysqlCreateDB():
+                self.launchCRDBButton.setEnabled(True)
+
         self.commitPubConfigButton.clicked.connect(_pubconfigButtonClick)
         self.pubConfigFormLayout.setWidget(6, QtWidgets.QFormLayout.SpanningRole, self.commitPubConfigButton)
         self.label = QtWidgets.QLabel(self.formLayoutWidget)
@@ -87,16 +89,58 @@ class Ui_MainWindow(object):
         self.label.raise_()
         self.commitPubConfigButton.raise_()
 
+    def _createButton(self, text, member,enabled=True):
+        button = QPushButton(text)
+        button.clicked.connect(member)
+        button.setEnabled(enabled)
+        return button
+    
+    def _createQCommandLinkButton(self,text,member,enabled=True):
+        button = QCommandLinkButton(text)
+        button.clicked.connect(member)
+        button.setEnabled(enabled)
+        return button
+
+    def _createTextEdit(self,editable:bool):
+        dirLineEdit = QLineEdit()
+        dirLineEdit.setEnabled(True)
+        dirLineEdit.setUpdatesEnabled(editable)
+        return dirLineEdit
+
+
+    def _getSQLFileDir(self):
+        directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
+        self.sqlFileDirLineText.setText(directory)
+        setSQLFileDirectory(directory)
+        if checkConfigForMysqlCreateDB():
+            self.launchCRDBButton.setEnabled(True)
+        
+    def _launchCreateDB(self):
+        log.debug('begin create database')
+        execute_createDB()
+
     def _setupMysqlActionBox(self):
         self.mysqlActionBox = QtWidgets.QToolBox(self.mysqlQWidget)
         self.mysqlActionBox.setGeometry(QtCore.QRect(0, 180, 400, 551))
         self.mysqlActionBox.setObjectName("detailConfigToolBox")
         self.createDatabaseQWidget = QtWidgets.QWidget()
         self.createDatabaseQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
-        self.createDatabaseQWidget.setObjectName("createDatabaseQWidget")
-        self.launchCRDBButton = QtWidgets.QCommandLinkButton(self.createDatabaseQWidget)
-        self.launchCRDBButton.setGeometry(QtCore.QRect(280, 0, 111, 41))
-        self.launchCRDBButton.setObjectName("launchButton")
+        self.createDatabaseQWidget.setObjectName("createDatabaseQWidget")       
+        
+        self.createDBGridLayout = QtWidgets.QGridLayout()
+        self.directoryLabel = QLabel("In directory:")
+        self.findSQLFileDirButton = self._createButton('Browers',self._getSQLFileDir)
+        self.sqlFileDirLineText = self._createTextEdit(True)
+        self.launchCRDBButton = self._createQCommandLinkButton('create',self._launchCreateDB,False)
+        
+        self.createDBGridLayout.addWidget(self.directoryLabel,0,0)
+        self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1)
+        self.createDBGridLayout.addWidget(self.findSQLFileDirButton,0,2)
+        self.createDBGridLayout.addWidget(self.launchCRDBButton,1,2)
+                
+        self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
+        
+        
         self.mysqlActionBox.addItem(self.createDatabaseQWidget, "")
         self.checkAliveQWidget = QtWidgets.QWidget()
         self.checkAliveQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
