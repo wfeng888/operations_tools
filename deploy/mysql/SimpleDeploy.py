@@ -17,9 +17,10 @@ def exec_stts(statements):
                 conn.database = CONFIG[MYSQL_CATEGORY]['database']
             for stt in statements:
                 try:
+                    log.debug('exec statement:{}'.format(stt))
                     cursor.execute(stt)
                 except Error as e:
-                    print('error_num:%d,error_msg:%s' %(e.errno,e.msg))
+                    log.error('error_num:%d,error_msg:%s .when execute statement:%s' %(e.errno,e.msg,stt))
     finally:
         conn.close()
 

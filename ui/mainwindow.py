@@ -1,18 +1,54 @@
 # -*- coding: utf-8 -*-
 
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel
+from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit
 from deploy.mysql.mysql_exec import execute_createDB
+from deploy.mysql import DBUtils
+from public_module import config
 
 import log
-from public_module.config import CONFIG, init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory
+from public_module.config import  init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory
+from ui.myThread import MyThread
+
+MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5)
+
+
+
+
 
 
 class Ui_MainWindow(object):
 
 
+
+    def updateProgress(self,id,progress):
+        log.debug('id:{},msg:{}'.format(str(id),str(progress)))
+
+    def writeLog(self,id,msg):
+        log.debug('id:{},msg:{}'.format(str(id),msg))
+
+    def _initButtonEnable(self):
+        self.setEnable = {
+            MYSQL_CREATE_DB:lambda enabled:self.launchCRDBButton.setEnabled(enabled),
+            MYSQL_CHECK_ALIVE:lambda enabled:self.checkMysqlAliveButton.setEnabled(enabled),
+            MYSQL_BACKUP:lambda enabled:self.backupButton.setEnabled(enabled),
+            MYSQL_RESTORE:lambda enabled:self.restoreButton.setEnabled(enabled),
+            MYSQL_CMD:lambda enabled:self.commandButton.setEnabled(enabled)
+        }
+    def setButtonEnable(self,id,enabled):
+        self.setEnable[id](enabled)
+
+    def _pubconfigButtonClick(self):
+        param = {'host':self.hostLineEdit.text().strip(),'port':self.portLineEdit.text().strip(),'user':self.userLineEdit.text().strip() \
+            ,'password':self.passwordLineEdit.text().strip(),'database':self.databaseLineEdit.text().strip()}
+        print(param)
+        init_mysqlconfig(**param)
+        if config.checkGeneralConfigForMysql():
+            self.checkMysqlAliveButton.setEnabled(True)
+        if checkConfigForMysqlCreateDB():
+            self.launchCRDBButton.setEnabled(True)
 
     def _setupMysqlPubPannel(self):
         self.formLayoutWidget = QtWidgets.QWidget(self.mysqlQWidget)
@@ -56,15 +92,8 @@ class Ui_MainWindow(object):
         self.pubConfigFormLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.passwordLineEdit)
         self.commitPubConfigButton = QtWidgets.QPushButton(self.formLayoutWidget)
         self.commitPubConfigButton.setObjectName("commitPubConfigButton")
-        def _pubconfigButtonClick(checked:bool):
-            param = {'host':self.hostLineEdit.text().strip(),'port':self.portLineEdit.text().strip(),'user':self.userLineEdit.text().strip()\
-                     ,'password':self.passwordLineEdit.text().strip(),'database':self.databaseLineEdit.text().strip()}
-            print(param)
-            init_mysqlconfig(**param)
-            if checkConfigForMysqlCreateDB():
-                self.launchCRDBButton.setEnabled(True)
 
-        self.commitPubConfigButton.clicked.connect(_pubconfigButtonClick)
+        self.commitPubConfigButton.clicked.connect(self._pubconfigButtonClick)
         self.pubConfigFormLayout.setWidget(6, QtWidgets.QFormLayout.SpanningRole, self.commitPubConfigButton)
         self.label = QtWidgets.QLabel(self.formLayoutWidget)
         self.label.setEnabled(True)
@@ -117,9 +146,23 @@ class Ui_MainWindow(object):
         
     def _launchCreateDB(self):
         log.debug('begin create database')
-        execute_createDB()
+        try:
+            self._mysqlCreateDBThread = MyThread(execute_createDB,MYSQL_CREATE_DB)
+            self._mysqlCreateDBThread.progressUpdate.connect(self.updateProgress)
+            self._mysqlCreateDBThread.msgUpdate.connect(self.writeLog)
+            self._mysqlCreateDBThread.buttonenable.connect(self.setButtonEnable)
+            self._mysqlCreateDBThread.start(MyThread.LowPriority)
+        except BaseException as e:
+            log.error(e)
+            raise e
+
+    def _launchCheckMysqlAlive(self):
+        log.debug('begin check mysql alive')
+        if DBUtils.isInstanceActive():
+            log.info('check mysql alive success ')
 
     def _setupMysqlActionBox(self):
+
         self.mysqlActionBox = QtWidgets.QToolBox(self.mysqlQWidget)
         self.mysqlActionBox.setGeometry(QtCore.QRect(0, 180, 400, 551))
         self.mysqlActionBox.setObjectName("detailConfigToolBox")
@@ -145,21 +188,26 @@ class Ui_MainWindow(object):
         self.checkAliveQWidget = QtWidgets.QWidget()
         self.checkAliveQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
         self.checkAliveQWidget.setObjectName("checkAliveQWidget")
-        self.commandLinkButton = QtWidgets.QCommandLinkButton(self.checkAliveQWidget)
-        self.commandLinkButton.setGeometry(QtCore.QRect(261, 0, 131, 41))
-        self.commandLinkButton.setObjectName("commandLinkButton")
+
+        self.checkMysqlDBAliveGridLayout = QtWidgets.QGridLayout()
+        self.checkMysqlAliveButton = self._createQCommandLinkButton('do check',self._launchCheckMysqlAlive,False)
+        self.checkMysqlAliveButton.setGeometry(QtCore.QRect(261, 0, 131, 41))
+        self.checkMysqlDBAliveGridLayout.addWidget(self.checkMysqlAliveButton,0,2)
+        self.checkAliveQWidget.setLayout(self.checkMysqlDBAliveGridLayout)
+
+
         self.mysqlActionBox.addItem(self.checkAliveQWidget, "")
         self.backupQWidget = QtWidgets.QWidget()
         self.backupQWidget.setObjectName("backupQWidget")
-        self.commandLinkButton_2 = QtWidgets.QCommandLinkButton(self.backupQWidget)
-        self.commandLinkButton_2.setGeometry(QtCore.QRect(260, 0, 131, 41))
-        self.commandLinkButton_2.setObjectName("commandLinkButton_2")
+        self.backupButton = QtWidgets.QCommandLinkButton(self.backupQWidget)
+        self.backupButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
+        self.backupButton.setObjectName("backupButton")
         self.mysqlActionBox.addItem(self.backupQWidget, "")
         self.restoreQWidget = QtWidgets.QWidget()
         self.restoreQWidget.setObjectName("restoreQWidget")
-        self.commandLinkButton_3 = QtWidgets.QCommandLinkButton(self.restoreQWidget)
-        self.commandLinkButton_3.setGeometry(QtCore.QRect(260, 0, 131, 41))
-        self.commandLinkButton_3.setObjectName("commandLinkButton_3")
+        self.restoreButton = QtWidgets.QCommandLinkButton(self.restoreQWidget)
+        self.restoreButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
+        self.restoreButton.setObjectName("restoreButton")
         self.mysqlActionBox.addItem(self.restoreQWidget, "")
         self.commandQWidget = QtWidgets.QWidget()
         self.commandQWidget.setObjectName("commandQWidget")
@@ -167,6 +215,8 @@ class Ui_MainWindow(object):
         self.commandLinkButton_4.setGeometry(QtCore.QRect(260, 0, 131, 41))
         self.commandLinkButton_4.setObjectName("commandLinkButton_4")
         self.mysqlActionBox.addItem(self.commandQWidget, "")
+
+        self._initButtonEnable()
 
 
     def setupESActionBox(self):
@@ -227,9 +277,13 @@ class Ui_MainWindow(object):
         self.oracleQWidget = QtWidgets.QWidget()
         self.oracleQWidget.setObjectName("oracleQWidget")
         self.mainPannelTabWidget.addTab(self.oracleQWidget, "")
-        self.logcommandMdiArea = QtWidgets.QMdiArea(self.centralwidget)
-        self.logcommandMdiArea.setGeometry(QtCore.QRect(400, 0, 1000, 771))
-        self.logcommandMdiArea.setObjectName("logcommandMdiArea")
+
+        self.logCommandTabWidget = QtWidgets.QTabWidget(self.centralwidget)
+        self.logCommandTabWidget.setGeometry(QtCore.QRect(400, 0, 1001, 751))
+        self.logCommandTabWidget.setTabPosition(QtWidgets.QTabWidget.South)
+        self.logCommandTabWidget.setObjectName("logCommandTabWidget")
+        self.addTabPage('createDB',self.logCommandTabWidget)
+
         MainWindow.setCentralWidget(self.centralwidget)
 
         self._setupMysqlActionBox()
@@ -241,6 +295,23 @@ class Ui_MainWindow(object):
         self.mysqlActionBox.setCurrentIndex(4)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
+    def addTabPage(self,title,tabWidget):
+        tab = QtWidgets.QWidget()
+        tab.setObjectName("tab")
+        logTextEdit = QTextEdit()
+        logTextEdit.setReadOnly(True)
+        commandTextEdit = QTextEdit()
+        commandTextEdit.setMinimumHeight(100)
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical,tab)
+        splitter.setGeometry(QtCore.QRect(0, 0, 1000, 750))
+        splitter.addWidget(logTextEdit)
+        splitter.addWidget(commandTextEdit)
+        tabWidget.addTab(tab, "")
+        _translate = QtCore.QCoreApplication.translate
+        tabWidget.setTabText(tabWidget.indexOf(tab), _translate("MainWindow", title))
+        tabWidget.setCurrentWidget(tabWidget)
+        return (tab,logTextEdit,commandTextEdit)
+
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
@@ -248,12 +319,12 @@ class Ui_MainWindow(object):
         self.mainPannelTabWidget.setWhatsThis(_translate("MainWindow", "<html><head/><body><p>MySQL</p></body></html>"))
         self.launchCRDBButton.setText(_translate("MainWindow", "go"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), _translate("MainWindow", "createdb"))
-        self.commandLinkButton.setText(_translate("MainWindow", "CommandLinkButton"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "backup"))
-        self.commandLinkButton_2.setText(_translate("MainWindow", "CommandLinkButton"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupQWidget), _translate("MainWindow", "restore"))
-        self.commandLinkButton_3.setText(_translate("MainWindow", "CommandLinkButton"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreQWidget), _translate("MainWindow", "checkAlive"))
+        self.checkMysqlAliveButton.setText(_translate("MainWindow", "do check"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "checkAlive"))
+        self.backupButton.setText(_translate("MainWindow", "do backup"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupQWidget), _translate("MainWindow", "backup"))
+        self.restoreButton.setText(_translate("MainWindow", "do backup"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreQWidget), _translate("MainWindow", "restore"))
         self.commandLinkButton_4.setText(_translate("MainWindow", "CommandLinkButton"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.commandQWidget), _translate("MainWindow", "command"))
         self.hostLabel.setText(_translate("MainWindow", "host"))

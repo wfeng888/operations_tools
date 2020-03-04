@@ -19,5 +19,8 @@ def isDBExists(dbname):
         conn.close()
     return False
 
+def isInstanceActive():
+    return isDBExists('mysql')
+
 def exec_stts(conn,statements):
     conn

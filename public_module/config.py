@@ -8,7 +8,11 @@ import log
 
 MYSQL_CATEGORY = 'mysql'
 MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG = 'sqldirectory'
-MYSQL_CREATEDB_CONFIG = ('host','port','user','password','database','sqldirectory')
+MYSQL_GENERAL_CONFIG = ('host','port','user','password','database')
+MYSQL_CREATEDB_CONFIG = list()
+MYSQL_CREATEDB_CONFIG.extend(MYSQL_GENERAL_CONFIG)
+MYSQL_CREATEDB_CONFIG.append(MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG)
+
 
 class ConfigBase(object,metaclass=FieldMeta):
     host:str
@@ -44,15 +48,24 @@ def setSQLFileDirectory(dir):
     global CONFIG
     CONFIG[MYSQL_CATEGORY][MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG] = dir
 
-def checkConfigForMysqlCreateDB():
-    global CONFIG
+
+def _checkEqual(source,target):
     try:
-        for item in MYSQL_CREATEDB_CONFIG:
-            if not CONFIG[MYSQL_CATEGORY][item]:
+        for item in target:
+            if not source[item]:
                 return False
     except KeyError as e:
         return False
     return True
+
+def checkConfigForMysqlCreateDB():
+    global CONFIG
+    return _checkEqual(CONFIG[MYSQL_CATEGORY],MYSQL_CREATEDB_CONFIG)
+
+
+def checkGeneralConfigForMysql():
+    global CONFIG
+    return _checkEqual(CONFIG[MYSQL_CATEGORY],MYSQL_GENERAL_CONFIG)
 
 CONFIG = {}
 init_mysqlconfig()
