@@ -1,7 +1,6 @@
 
 from configparser import ConfigParser
 from os import path
-from typing import List
 
 from deploy.fields import FieldMeta
 import log

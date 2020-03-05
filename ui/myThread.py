@@ -1,3 +1,5 @@
+import traceback
+
 from PyQt5.QtCore import QThread, QMutexLocker, pyqtSignal, QMutex
 
 import log
@@ -23,31 +25,40 @@ class NotifyCombine(object):
 
 
 class MyThread(QThread):
+    SUCCESS,FAIL = range(2)
     NOT_BEGIN,RUNNING,FINISHED = range(3)
     progressUpdate = pyqtSignal(int,float)
     msgUpdate = pyqtSignal(int,str)
-    buttonenable = pyqtSignal(int,bool)
+    beginTask =  pyqtSignal(int)
+    finishTask = pyqtSignal(int,int,bool)
     def __init__(self,runfunc,id):
         super(MyThread, self).__init__()
         self._runFunc = runfunc
         self._id = id
         self._state = self.NOT_BEGIN
         self._notifier = NotifyCombine(self,self,self._id)
+        self._runningResult = -1
+        self._taskresult = False
 
     def run(self):
         try:
-            locker = QMutexLocker(QMutex())
-            self.buttonenable.emit(self._id,False)
+
+            self.beginTask.emit(self._id)
+            # locker = QMutexLocker(QMutex())
             addNotifier(self._notifier)
             self._state = self.RUNNING
-            self._runFunc()
+            self._taskresult = self._runFunc()
+            if not isinstance(self._taskresult,bool):
+                self._taskresult = True if self._taskresult else False
             self._state = self.FINISHED
+            self._runningResult = self.SUCCESS
             removeNotifier(self._notifier)
         except BaseException as e:
-            log.error(e)
+            log.error(traceback.format_exc())
+            self._runningResult = self.FAIL
             raise e
         finally:
-            self.buttonenable.emit(self._id,True)
+            self.finishTask.emit(self._id,self._runningResult,self._taskresult)
 
     def isRunning(self):
         return self._state == self.RUNNING

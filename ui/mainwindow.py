@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-
+import traceback
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit
+from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy
 from deploy.mysql.mysql_exec import execute_createDB
 from deploy.mysql import DBUtils
 from public_module import config
@@ -22,12 +22,15 @@ MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5
 class Ui_MainWindow(object):
 
 
+    def __init__(self):
+        self.logCommandTabs = {}
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
 
     def writeLog(self,id,msg):
-        log.debug('id:{},msg:{}'.format(str(id),msg))
+        self.logCommandTabs[id][1].append(msg)
+        self.logCommandTabs[id][1].verticalScrollBar().minimum()
 
     def _initButtonEnable(self):
         self.setEnable = {
@@ -37,8 +40,6 @@ class Ui_MainWindow(object):
             MYSQL_RESTORE:lambda enabled:self.restoreButton.setEnabled(enabled),
             MYSQL_CMD:lambda enabled:self.commandButton.setEnabled(enabled)
         }
-    def setButtonEnable(self,id,enabled):
-        self.setEnable[id](enabled)
 
     def _pubconfigButtonClick(self):
         param = {'host':self.hostLineEdit.text().strip(),'port':self.portLineEdit.text().strip(),'user':self.userLineEdit.text().strip() \
@@ -128,6 +129,7 @@ class Ui_MainWindow(object):
         button = QCommandLinkButton(text)
         button.clicked.connect(member)
         button.setEnabled(enabled)
+        button.setFixedSize(120,40)
         return button
 
     def _createTextEdit(self,editable:bool):
@@ -143,48 +145,80 @@ class Ui_MainWindow(object):
         setSQLFileDirectory(directory)
         if checkConfigForMysqlCreateDB():
             self.launchCRDBButton.setEnabled(True)
-        
-    def _launchCreateDB(self):
-        log.debug('begin create database')
+
+    def _setButtonEnable(self,id,enabled):
+        self.setEnable[id](enabled)
+
+    def _taskStartCallback(self,id):
+        self._setButtonEnable(id,False)
+
+    def _taskFinishCallback(self,id,runningResult,taskResult):
+        self._setButtonEnable(id,True)
+        if id == MYSQL_CHECK_ALIVE:
+            msg = 'THANK GOD!Mysql service is alive.' if taskResult else 'TOO BAD! Mysql service is down!'
+            self.writeLog(id,msg)
+
+
+    def _launchTask(self,func,id):
         try:
-            self._mysqlCreateDBThread = MyThread(execute_createDB,MYSQL_CREATE_DB)
+            self._mysqlCreateDBThread = MyThread(func,id)
             self._mysqlCreateDBThread.progressUpdate.connect(self.updateProgress)
             self._mysqlCreateDBThread.msgUpdate.connect(self.writeLog)
-            self._mysqlCreateDBThread.buttonenable.connect(self.setButtonEnable)
+            self._mysqlCreateDBThread.beginTask.connect(self._taskStartCallback)
+            self._mysqlCreateDBThread.finishTask.connect(self._taskFinishCallback)
             self._mysqlCreateDBThread.start(MyThread.LowPriority)
         except BaseException as e:
-            log.error(e)
-            raise e
+            log.error(traceback.format_exc())
+
+    def _launchCreateDB(self):
+        log.debug('begin create database')
+        self._launchTask(execute_createDB,MYSQL_CREATE_DB)
 
     def _launchCheckMysqlAlive(self):
-        log.debug('begin check mysql alive')
-        if DBUtils.isInstanceActive():
-            log.info('check mysql alive success ')
+        self.logCommandTabs[MYSQL_CHECK_ALIVE] = self._addTabPage('checkMysqlAlive',self.logCommandTabWidget)
+        self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[MYSQL_CHECK_ALIVE][0])
+        self.writeLog(MYSQL_CHECK_ALIVE,'Begin to check mysql !')
+        self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE)
 
-    def _setupMysqlActionBox(self):
+    def _addCheckBox(self,title):
+        checkBox = QtWidgets.QCheckBox(title)
+        checkBox.setObjectName(title)
+        checkBox.setEnabled(True)
+        return checkBox
 
-        self.mysqlActionBox = QtWidgets.QToolBox(self.mysqlQWidget)
-        self.mysqlActionBox.setGeometry(QtCore.QRect(0, 180, 400, 551))
-        self.mysqlActionBox.setObjectName("detailConfigToolBox")
+    def _setupCreateDatabaseWidget(self):
         self.createDatabaseQWidget = QtWidgets.QWidget()
         self.createDatabaseQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
-        self.createDatabaseQWidget.setObjectName("createDatabaseQWidget")       
-        
+        self.createDatabaseQWidget.setObjectName("createDatabaseQWidget")
+
         self.createDBGridLayout = QtWidgets.QGridLayout()
-        self.directoryLabel = QLabel("In directory:")
+        self.directoryLabel = QLabel("sql directory:")
         self.findSQLFileDirButton = self._createButton('Browers',self._getSQLFileDir)
         self.sqlFileDirLineText = self._createTextEdit(True)
+
+        self.logdDirectoryLabel = QLabel("log directory:")
+        self.findLogDirButton = self._createButton('Browers',self._getSQLFileDir)
+        self.logDirLineText = self._createTextEdit(True)
+
         self.launchCRDBButton = self._createQCommandLinkButton('create',self._launchCreateDB,False)
-        
+
+        self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError')
+        self.logStatementCheckBox = self._addCheckBox('LogStatement')
+
         self.createDBGridLayout.addWidget(self.directoryLabel,0,0)
-        self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1)
-        self.createDBGridLayout.addWidget(self.findSQLFileDirButton,0,2)
-        self.createDBGridLayout.addWidget(self.launchCRDBButton,1,2)
-                
+        self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1,1,3)
+        self.createDBGridLayout.addWidget(self.findSQLFileDirButton,0,4)
+        self.createDBGridLayout.addWidget(self.logdDirectoryLabel,1,0)
+        self.createDBGridLayout.addWidget(self.logDirLineText,1,1,1,3)
+        self.createDBGridLayout.addWidget(self.findLogDirButton,1,4)
+        self.createDBGridLayout.addWidget(self.ignoreErrorCheckBox,2,0,1,2)
+        self.createDBGridLayout.addWidget(self.logStatementCheckBox,2,1,1,2)
+        self.createDBGridLayout.addWidget(self.launchCRDBButton,3,3)
         self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
-        
-        
-        self.mysqlActionBox.addItem(self.createDatabaseQWidget, "")
+
+        return self.createDatabaseQWidget
+
+    def _setupMysqlCheckAliveWidget(self):
         self.checkAliveQWidget = QtWidgets.QWidget()
         self.checkAliveQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
         self.checkAliveQWidget.setObjectName("checkAliveQWidget")
@@ -195,8 +229,18 @@ class Ui_MainWindow(object):
         self.checkMysqlDBAliveGridLayout.addWidget(self.checkMysqlAliveButton,0,2)
         self.checkAliveQWidget.setLayout(self.checkMysqlDBAliveGridLayout)
 
+    def _setupMysqlActionBox(self):
 
+        self.mysqlActionBox = QtWidgets.QToolBox(self.mysqlQWidget)
+        self.mysqlActionBox.setGeometry(QtCore.QRect(0, 180, 400, 551))
+        self.mysqlActionBox.setObjectName("detailConfigToolBox")
+
+        self._setupCreateDatabaseWidget()
+        self._setupMysqlCheckAliveWidget()
+        self.mysqlActionBox.addItem(self.createDatabaseQWidget, "")
         self.mysqlActionBox.addItem(self.checkAliveQWidget, "")
+
+
         self.backupQWidget = QtWidgets.QWidget()
         self.backupQWidget.setObjectName("backupQWidget")
         self.backupButton = QtWidgets.QCommandLinkButton(self.backupQWidget)
@@ -282,7 +326,7 @@ class Ui_MainWindow(object):
         self.logCommandTabWidget.setGeometry(QtCore.QRect(400, 0, 1001, 751))
         self.logCommandTabWidget.setTabPosition(QtWidgets.QTabWidget.South)
         self.logCommandTabWidget.setObjectName("logCommandTabWidget")
-        self.addTabPage('createDB',self.logCommandTabWidget)
+        self.logCommandTabs[MYSQL_CREATE_DB] = self._addTabPage('createDB',self.logCommandTabWidget)
 
         MainWindow.setCentralWidget(self.centralwidget)
 
@@ -295,7 +339,7 @@ class Ui_MainWindow(object):
         self.mysqlActionBox.setCurrentIndex(4)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-    def addTabPage(self,title,tabWidget):
+    def _addTabPage(self,title,tabWidget):
         tab = QtWidgets.QWidget()
         tab.setObjectName("tab")
         logTextEdit = QTextEdit()
@@ -317,7 +361,7 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.mainPannelTabWidget.setToolTip(_translate("MainWindow", "<html><head/><body><p>mysql</p></body></html>"))
         self.mainPannelTabWidget.setWhatsThis(_translate("MainWindow", "<html><head/><body><p>MySQL</p></body></html>"))
-        self.launchCRDBButton.setText(_translate("MainWindow", "go"))
+        self.launchCRDBButton.setText(_translate("MainWindow", "create"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), _translate("MainWindow", "createdb"))
         self.checkMysqlAliveButton.setText(_translate("MainWindow", "do check"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "checkAlive"))

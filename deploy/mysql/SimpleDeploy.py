@@ -1,3 +1,5 @@
+import traceback
+
 from mysql.connector import Error
 
 import log
@@ -21,6 +23,8 @@ def exec_stts(statements):
                     cursor.execute(stt)
                 except Error as e:
                     log.error('error_num:%d,error_msg:%s .when execute statement:%s' %(e.errno,e.msg,stt))
+                except BaseException as e:
+                    log.error(traceback.format_exc())
     finally:
         conn.close()
 

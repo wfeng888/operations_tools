@@ -10,7 +10,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.setFixedSize(self.width(), self.height())
 
+def start(params):
+    app = QtWidgets.QApplication(params)
 
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
