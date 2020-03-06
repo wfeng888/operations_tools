@@ -7,6 +7,9 @@ from mysql.connector.pooling import PooledMySQLConnection,MySQLConnectionPool
 from deploy.mysql.Exception import ParamNotMatchException
 
 from public_module.config import  MYSQL_CATEGORY,getConfig
+import log
+from deploy.mysql.DBUtils import formatErrorMsg
+
 
 
 class AbstractDataSource(metaclass=ABCMeta):
@@ -22,7 +25,7 @@ class AbstractDataSource(metaclass=ABCMeta):
             elif kwargs:
                 self.set_class_attr((kwargs['user'], kwargs['password'], kwargs['host'], kwargs['port'],kwargs['database']))
         except KeyError as err:
-            print(err.with_traceback())
+            log.error(formatErrorMsg(err))
             raise ParamNotMatchException('database connection parames not match ')
 
     @abstractmethod
@@ -51,7 +54,7 @@ class DBUtilPooledDBDataSource(AbstractDataSource):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         from DBUtils.PooledDB import PooledDB
-        self._conn_params['use_pure'] = True
+        # self._conn_params['use_pure'] = True
         # self._pool = PooledDB(connector,maxcached=8,maxconnections=50,**{'user':self._user_name,'password':self._pass_word,'host':self._host,'port':self._port,'database':self._data_base,'use_pure':True})
         self._pool = PooledDB(connector,maxcached=8,maxconnections=50,**self._conn_params)
 
@@ -64,7 +67,7 @@ class MysqlPooledDataSource(AbstractDataSource):
 
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self._conn_params['use_pure'] = True
+        # self._conn_params['use_pure'] = True
         self._conn_params['pool_name'] = 'test_pool'
         self._conn_params['pool_size'] = 10
         # self._pool = MySQLConnectionPool(**{'user':self._user_name,'password':self._pass_word,\
@@ -74,8 +77,8 @@ class MysqlPooledDataSource(AbstractDataSource):
             self._traceback = None
             self._pool = MySQLConnectionPool(**self._conn_params)
         except InterfaceError as e:
-            print('MysqlPooledDataSource connect error')
-            e.with_traceback(self._traceback)
+            log.error('MysqlPooledDataSource connect error')
+            log.error(formatErrorMsg(e))
             raise e
 
 

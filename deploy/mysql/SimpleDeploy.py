@@ -7,13 +7,13 @@ from parse.outer_parse import simple_parse
 from public_module.config import getConfig, MYSQL_CATEGORY
 from deploy.mysql.DataSource import getDS
 from deploy.mysql import DBUtils
-import time
+from public_module.global_vars import getNotifier
 
 def exec_stts(statements):
     _config = getConfig()
-    dbexists =  DBUtils.isDBExists(_config[MYSQL_CATEGORY]['database'])
     try:
         ds = getDS()
+        dbexists =  DBUtils.isDBExists(ds,_config[MYSQL_CATEGORY]['database'])
         conn = ds.get_conn()
         with conn.cursor() as cursor:
             if not dbexists:
@@ -32,16 +32,34 @@ def exec_stts(statements):
         ds.close()
 
 
-def exec(sqlfiles):
+_notifier = None
+def exec_warp(sqlfiles,total=0,curnum=0):
+    global _notifier
+    try:
+        _notifier = getNotifier()
+        notify_progress(1)
+        exec(sqlfiles,total,curnum)
+        notify_progress(100)
+    finally:
+        _notifier = None
+
+
+def exec(sqlfiles,total=0,curnum=0):
     if isinstance(sqlfiles,dict):
         for k,v in sqlfiles.items():
-            exec(v)
+            exec(v,total,curnum)
     elif isinstance(sqlfiles,(tuple,list)):
         for k in sqlfiles:
-            exec(k)
+            exec(k,total,curnum)
     elif isinstance(sqlfiles,str):
         stts = simple_parse(sqlfiles)
         log.debug('exec start {} '.format(sqlfiles))
         exec_stts(stts)
+        cur_num = curnum +1
+        notify_progress(cur_num*100/total)
         log.debug('exec end {} '.format(sqlfiles))
 
+def notify_progress(value):
+    global _notifier
+    if _notifier:
+        _notifier.notifyProgress(value)

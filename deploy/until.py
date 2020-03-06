@@ -5,7 +5,6 @@ from re import RegexFlag
 
 # stat_type = {'DDL':1,'DDLS':1,'TABLE':2,'TABLES':2,'VIEW':3,'VIEWS':3,'PROCEDURE':2,'PROCEDURES':2,'FUNCTION':3,'FUNCTIONS':3,'DML':99,'DMLS':99}
 
-__all__ = {'list_sqlfile'}
 
 REGEX = [
     (r'(\s)*([0-9]+(\.)*)+(\s)*',lambda x: [int(i) for i in x.split('.')]),
@@ -88,5 +87,35 @@ def list_sqlfile(filepath):
             return curlist
         else:
             if os.path.splitext(filepath)[1].upper() == '.SQL':
-                return filepath
+                return (filepath,)
 
+
+
+
+
+def list_sqlfile_new(filepath):
+    base = Path(filepath)
+    if base.exists():
+        if base.is_dir():
+            curlist = {}
+            num =  0
+            curdir = os.path.split(filepath)[1]
+            subfiles = _sort([i for i in os.listdir(filepath) if valid(os.path.join(filepath,i))])
+            curfiles = []
+            for i in subfiles:
+                if os.path.isdir(os.path.join(filepath,i)):
+                    s = list_sqlfile_new(os.path.join(filepath,i))
+                    if s[0]:
+                        num = num+s[1]
+                        curfiles.append(s[0])
+                else:
+                    curfiles.append(os.path.join(filepath,i))
+                    num = num + 1
+            if curfiles:
+                curlist[curdir] = curfiles
+                return curlist,num
+            else:
+                return None,0
+        else:
+            if os.path.splitext(filepath)[1].upper() == '.SQL':
+                return filepath,1

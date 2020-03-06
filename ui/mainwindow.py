@@ -17,6 +17,7 @@ from ui.myThread import MyThread
 
 MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5)
 TASK_IDLE,TASK_BUSY = range(2)
+TABPAGE,LOG,COMMAND,PROGRESS = range(4)
 
 
 
@@ -32,10 +33,12 @@ class Ui_MainWindow(object):
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
+        if self.logCommandTabs[id].get(PROGRESS):
+            self.logCommandTabs[id].get(PROGRESS).setProperty("value", progress)
 
     def writeLog(self,id,msg):
-        self.logCommandTabs[id][1].append(msg)
-        self.logCommandTabs[id][1].verticalScrollBar().minimum()
+        self.logCommandTabs[id].get(LOG).append(msg)
+        self.logCommandTabs[id].get(LOG).verticalScrollBar().minimum()
 
     def _initButtonEnable(self):
         self.setEnable = {
@@ -224,14 +227,15 @@ class Ui_MainWindow(object):
     def _launchCheckMysqlAlive(self):
         if not self.logCommandTabs.get(MYSQL_CHECK_ALIVE):
             self.logCommandTabs[MYSQL_CHECK_ALIVE] = self._addTabPage('checkMysqlAlive',self.logCommandTabWidget)
-        self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[MYSQL_CHECK_ALIVE][0])
+        self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[MYSQL_CHECK_ALIVE].get(TABPAGE))
         self.writeLog(MYSQL_CHECK_ALIVE,'Begin to check mysql !')
         self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE)
 
-    def _addCheckBox(self,title):
+    def _addCheckBox(self,title,checked=False):
         checkBox = QtWidgets.QCheckBox(title)
         checkBox.setObjectName(title)
         checkBox.setEnabled(True)
+        checkBox.setChecked(checked)
         return checkBox
 
     def _setupCreateDatabaseWidget(self):
@@ -250,13 +254,25 @@ class Ui_MainWindow(object):
 
         self.launchCRDBButton = self._createQCommandLinkButton('create',self._launchCreateDB,False)
 
-        self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError')
-        self.logStatementCheckBox = self._addCheckBox('LogStatement')
+        self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError',True)
+        self.logStatementCheckBox = self._addCheckBox('LogStatement',True)
 
-        self.createMysqlDBcomboBox = QtWidgets.QComboBox()
-        self.createMysqlDBcomboBox.setObjectName("comboBox")
-        self.createMysqlDBcomboBox.addItem("")
-        self.createMysqlDBcomboBox.addItem("")
+        self.createMysqlDBDeployModeLabel = QLabel()
+        self.createMysqlDBDeployModecomboBox = QtWidgets.QComboBox()
+        self.createMysqlDBDeployModecomboBox.setObjectName("createMysqlDBDeployModecomboBox")
+        self.createMysqlDBDeployModecomboBox.addItem("")
+        self.createMysqlDBDeployModecomboBox.addItem("")
+
+        self.createMysqlDBLogLevelLabel = QLabel()
+        self.createMysqlDBLogLevelcomboBox = QtWidgets.QComboBox()
+        self.createMysqlDBLogLevelcomboBox.setObjectName("createMysqlDBLogLevelcomboBox")
+        self.createMysqlDBLogLevelcomboBox.addItem("DEBUG")
+        self.createMysqlDBLogLevelcomboBox.addItem("VERBOSE")
+        self.createMysqlDBLogLevelcomboBox.addItem("INFO")
+        self.createMysqlDBLogLevelcomboBox.addItem("WARNING")
+        self.createMysqlDBLogLevelcomboBox.addItem("ERROR")
+
+        self.createMysqlDBProgressBar = self._createProgressBar('createMysqlDBProgressBar')
 
         self.createDBGridLayout.addWidget(self.directoryLabel,0,0)
         self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1,1,3)
@@ -267,11 +283,25 @@ class Ui_MainWindow(object):
         self.createDBGridLayout.addWidget(self.findLogDirButton,1,4)
         self.createDBGridLayout.addWidget(self.ignoreErrorCheckBox,2,0,1,2)
         self.createDBGridLayout.addWidget(self.logStatementCheckBox,2,1,1,2)
-        self.createDBGridLayout.addWidget(self.createMysqlDBcomboBox,3,0,1,2)
-        self.createDBGridLayout.addWidget(self.launchCRDBButton,4,3)
+        self.createDBGridLayout.addWidget(self.createMysqlDBDeployModeLabel,3,0)
+        self.createDBGridLayout.addWidget(self.createMysqlDBDeployModecomboBox,3,1,1,3)
+        self.createDBGridLayout.addWidget(self.createMysqlDBLogLevelLabel,4,0)
+        self.createDBGridLayout.addWidget(self.createMysqlDBLogLevelcomboBox,4,1,1,2)
+        self.createDBGridLayout.addWidget(self.createMysqlDBProgressBar,5,0,1,5)
+        self.createDBGridLayout.addWidget(self.launchCRDBButton,6,3)
         self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
 
+        self.logCommandTabs[MYSQL_CREATE_DB][PROGRESS] = self.createMysqlDBProgressBar
         return self.createDatabaseQWidget
+
+    def _createProgressBar(self,objname=None):
+        progressBar = QtWidgets.QProgressBar()
+        progressBar.setMouseTracking(False)
+        progressBar.setTabletTracking(False)
+        progressBar.setProperty("value", 0.0)
+        if objname:
+            progressBar.setObjectName(objname)
+        return progressBar
 
     def _setupMysqlCheckAliveWidget(self):
         self.checkAliveQWidget = QtWidgets.QWidget()
@@ -308,12 +338,12 @@ class Ui_MainWindow(object):
         self.restoreButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
         self.restoreButton.setObjectName("restoreButton")
         self.mysqlActionBox.addItem(self.restoreQWidget, "")
-        self.commandQWidget = QtWidgets.QWidget()
-        self.commandQWidget.setObjectName("commandQWidget")
-        self.commandLinkButton_4 = QtWidgets.QCommandLinkButton(self.commandQWidget)
-        self.commandLinkButton_4.setGeometry(QtCore.QRect(260, 0, 131, 41))
-        self.commandLinkButton_4.setObjectName("commandLinkButton_4")
-        self.mysqlActionBox.addItem(self.commandQWidget, "")
+        self.mysqlCommandQWidget = QtWidgets.QWidget()
+        self.mysqlCommandQWidget.setObjectName("mysqlCommandQWidget")
+        self.mysqlCommandButton = QtWidgets.QCommandLinkButton(self.mysqlCommandQWidget)
+        self.mysqlCommandButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
+        self.mysqlCommandButton.setObjectName("mysqlCommandButton")
+        self.mysqlActionBox.addItem(self.mysqlCommandQWidget, "")
 
         self._initButtonEnable()
 
@@ -401,15 +431,18 @@ class Ui_MainWindow(object):
         logTextEdit.setReadOnly(True)
         commandTextEdit = QTextEdit()
         commandTextEdit.setMinimumHeight(100)
+        commandTextEdit.cursor()
         splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical,tab)
         splitter.setGeometry(QtCore.QRect(0, 0, 1000, 750))
+        splitter.setChildrenCollapsible(False)
         splitter.addWidget(logTextEdit)
         splitter.addWidget(commandTextEdit)
         tabWidget.addTab(tab, "")
         _translate = QtCore.QCoreApplication.translate
         tabWidget.setTabText(tabWidget.indexOf(tab), _translate("MainWindow", title))
         tabWidget.setCurrentWidget(tabWidget)
-        return (tab,logTextEdit,commandTextEdit)
+
+        return  {TABPAGE:tab,LOG:logTextEdit,COMMAND:commandTextEdit}
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -422,10 +455,10 @@ class Ui_MainWindow(object):
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "checkAlive"))
         self.backupButton.setText(_translate("MainWindow", "do backup"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupQWidget), _translate("MainWindow", "backup"))
-        self.restoreButton.setText(_translate("MainWindow", "do backup"))
+        self.restoreButton.setText(_translate("MainWindow", "do restore"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreQWidget), _translate("MainWindow", "restore"))
-        self.commandLinkButton_4.setText(_translate("MainWindow", "CommandLinkButton"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.commandQWidget), _translate("MainWindow", "command"))
+        self.mysqlCommandButton.setText(_translate("MainWindow", "enter"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.mysqlCommandQWidget), _translate("MainWindow", "command"))
         self.hostLabel.setText(_translate("MainWindow", "host"))
         self.portLabel.setText(_translate("MainWindow", "port"))
         self.userLabel.setText(_translate("MainWindow", "user"))
@@ -441,5 +474,14 @@ class Ui_MainWindow(object):
         self.actionExit.setText(_translate("MainWindow", "Exit"))
         self.actionabout_version.setText(_translate("MainWindow", "about version"))
         self.actionmanual.setText(_translate("MainWindow", "manual"))
-        self.createMysqlDBcomboBox.setItemText(0, _translate("MainWindow", "Simple deploy"))
-        self.createMysqlDBcomboBox.setItemText(1, _translate("MainWindow", "Parallel deploy"))
+        self.createMysqlDBDeployModecomboBox.setItemText(0, _translate("MainWindow", "Simple deploy"))
+        self.createMysqlDBDeployModecomboBox.setItemText(1, _translate("MainWindow", "Parallel deploy"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(0, _translate("MainWindow", "DEBUG"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(1, _translate("MainWindow", "VERBOSE"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(2, _translate("MainWindow", "INFO"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(3, _translate("MainWindow", "WARNING"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(4, _translate("MainWindow", "ERROR"))
+        self.createMysqlDBDeployModeLabel.setText(_translate("MainWindow", "deploy mode"))
+        self.createMysqlDBLogLevelLabel.setText(_translate("MainWindow", "log level"))
+
+

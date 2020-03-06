@@ -1,13 +1,22 @@
+import traceback
+
 from mysql.connector import Error
-from public_module.config import getConfig,MYSQL_GENERAL_CONFIG,MYSQL_CATEGORY
 import log
-from deploy.mysql.DataSource import getDS
 
-SQL_CREATE_DATABASE = r'create database {}'
 
-def isDBExists(dbname):
+
+
+
+def formatErrorMsg(e):
     try:
-        ds = getDS()
+        return 'mysql connect error.  errno:{},msg:{},args:{}'.format(str(e.errno),e.msg,e.args)
+    except BaseException:
+        return traceback.format_exc()
+
+
+
+def isDBExists(ds,dbname):
+    try:
         conn = ds.get_conn()
     except Error as e:
         log.error(e.errno+':'+e.msg)
@@ -21,11 +30,4 @@ def isDBExists(dbname):
     finally:
         if conn:
             conn.close()
-        ds.close()
     return False
-
-def isInstanceActive():
-    _config = getConfig()
-    log.info('check mysql service for {}'.format([k+'='+_config[MYSQL_CATEGORY][k] for k in MYSQL_GENERAL_CONFIG if k != 'password']))
-    return isDBExists('mysql')
-
