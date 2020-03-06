@@ -9,10 +9,14 @@ from deploy.mysql import DBUtils
 from public_module import config
 
 import log
-from public_module.config import  init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory
+from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, CONFIG, \
+    MYSQL_CATEGORY, checkGeneralConfigForMysql
+
 from ui.myThread import MyThread
 
+
 MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5)
+TASK_IDLE,TASK_BUSY = range(2)
 
 
 
@@ -24,6 +28,7 @@ class Ui_MainWindow(object):
 
     def __init__(self):
         self.logCommandTabs = {}
+        self._taskState={}
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
@@ -34,22 +39,52 @@ class Ui_MainWindow(object):
 
     def _initButtonEnable(self):
         self.setEnable = {
-            MYSQL_CREATE_DB:lambda enabled:self.launchCRDBButton.setEnabled(enabled),
-            MYSQL_CHECK_ALIVE:lambda enabled:self.checkMysqlAliveButton.setEnabled(enabled),
-            MYSQL_BACKUP:lambda enabled:self.backupButton.setEnabled(enabled),
-            MYSQL_RESTORE:lambda enabled:self.restoreButton.setEnabled(enabled),
-            MYSQL_CMD:lambda enabled:self.commandButton.setEnabled(enabled)
+            MYSQL_CREATE_DB:self._checkMysqlCreateDBButton,
+            MYSQL_CHECK_ALIVE:self._checkMysqlServiceAliveButton,
+            MYSQL_BACKUP:self._checkMysqlBackupButton,
+            MYSQL_RESTORE:self._checkMysqlRestoreButton,
+            MYSQL_CMD:self._checkMysqlCommandButton
         }
+
+    def _isTaskBusy(self,id):
+        return True if self._taskState.get(id) and self._taskState.get(id) == TASK_BUSY else False
+
+    def _checkMysqlCreateDBButton(self):
+        if config.checkConfigForMysqlCreateDB() and not self._isTaskBusy(MYSQL_CREATE_DB):
+            self.launchCRDBButton.setEnabled(True)
+        else:
+            self.launchCRDBButton.setEnabled(False)
+
+    def _checkMysqlServiceAliveButton(self):
+        if checkGeneralConfigForMysql() and not self._isTaskBusy(MYSQL_CHECK_ALIVE):
+            self.checkMysqlAliveButton.setEnabled(True)
+        else:
+            self.checkMysqlAliveButton.setEnabled(False)
+
+    def _checkMysqlBackupButton(self):
+        pass
+
+    def _checkMysqlRestoreButton(self):
+        pass
+
+    def _checkMysqlCommandButton(self):
+        pass
+
+    def _checkButtonEnable(self,id=None):
+        keys = self.setEnable.keys()
+        if id:
+            if not isinstance(id,(list,tuple)):
+                id = (id,)
+            keys = id
+        for key in keys:
+            self.setEnable[key]()
 
     def _pubconfigButtonClick(self):
         param = {'host':self.hostLineEdit.text().strip(),'port':self.portLineEdit.text().strip(),'user':self.userLineEdit.text().strip() \
             ,'password':self.passwordLineEdit.text().strip(),'database':self.databaseLineEdit.text().strip()}
-        print(param)
+        log.debug(param)
         init_mysqlconfig(**param)
-        if config.checkGeneralConfigForMysql():
-            self.checkMysqlAliveButton.setEnabled(True)
-        if checkConfigForMysqlCreateDB():
-            self.launchCRDBButton.setEnabled(True)
+        self._checkButtonEnable()
 
     def _setupMysqlPubPannel(self):
         self.formLayoutWidget = QtWidgets.QWidget(self.mysqlQWidget)
@@ -118,6 +153,16 @@ class Ui_MainWindow(object):
         self.hostLabel.raise_()
         self.label.raise_()
         self.commitPubConfigButton.raise_()
+        self._initMysqlPubConfig()
+
+
+    def _initMysqlPubConfig(self):
+        self.userLineEdit.setText(config.getMysqlUser())
+        self.portLineEdit.setText(config.getMysqlPort())
+        self.hostLineEdit.setText(config.getMysqlHost())
+        self.databaseLineEdit.setText(config.getMysqlDatabase())
+        self.passwordLineEdit.setText(config.getMysqlPassword())
+        self._checkButtonEnable()
 
     def _createButton(self, text, member,enabled=True):
         button = QPushButton(text)
@@ -143,17 +188,18 @@ class Ui_MainWindow(object):
         directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
         self.sqlFileDirLineText.setText(directory)
         setSQLFileDirectory(directory)
-        if checkConfigForMysqlCreateDB():
-            self.launchCRDBButton.setEnabled(True)
+        self._checkButtonEnable(MYSQL_CREATE_DB)
 
-    def _setButtonEnable(self,id,enabled):
-        self.setEnable[id](enabled)
+    # def _setButtonEnable(self,id,enabled):
+    #     self.setEnable[id](enabled)
 
     def _taskStartCallback(self,id):
-        self._setButtonEnable(id,False)
+        self._taskState[id]=TASK_BUSY
+        self._checkButtonEnable(id)
 
     def _taskFinishCallback(self,id,runningResult,taskResult):
-        self._setButtonEnable(id,True)
+        self._taskState[id]=TASK_IDLE
+        self._checkButtonEnable(id)
         if id == MYSQL_CHECK_ALIVE:
             msg = 'THANK GOD!Mysql service is alive.' if taskResult else 'TOO BAD! Mysql service is down!'
             self.writeLog(id,msg)
@@ -174,8 +220,10 @@ class Ui_MainWindow(object):
         log.debug('begin create database')
         self._launchTask(execute_createDB,MYSQL_CREATE_DB)
 
+
     def _launchCheckMysqlAlive(self):
-        self.logCommandTabs[MYSQL_CHECK_ALIVE] = self._addTabPage('checkMysqlAlive',self.logCommandTabWidget)
+        if not self.logCommandTabs.get(MYSQL_CHECK_ALIVE):
+            self.logCommandTabs[MYSQL_CHECK_ALIVE] = self._addTabPage('checkMysqlAlive',self.logCommandTabWidget)
         self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[MYSQL_CHECK_ALIVE][0])
         self.writeLog(MYSQL_CHECK_ALIVE,'Begin to check mysql !')
         self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE)
@@ -205,15 +253,22 @@ class Ui_MainWindow(object):
         self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError')
         self.logStatementCheckBox = self._addCheckBox('LogStatement')
 
+        self.createMysqlDBcomboBox = QtWidgets.QComboBox()
+        self.createMysqlDBcomboBox.setObjectName("comboBox")
+        self.createMysqlDBcomboBox.addItem("")
+        self.createMysqlDBcomboBox.addItem("")
+
         self.createDBGridLayout.addWidget(self.directoryLabel,0,0)
         self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1,1,3)
         self.createDBGridLayout.addWidget(self.findSQLFileDirButton,0,4)
         self.createDBGridLayout.addWidget(self.logdDirectoryLabel,1,0)
+
         self.createDBGridLayout.addWidget(self.logDirLineText,1,1,1,3)
         self.createDBGridLayout.addWidget(self.findLogDirButton,1,4)
         self.createDBGridLayout.addWidget(self.ignoreErrorCheckBox,2,0,1,2)
         self.createDBGridLayout.addWidget(self.logStatementCheckBox,2,1,1,2)
-        self.createDBGridLayout.addWidget(self.launchCRDBButton,3,3)
+        self.createDBGridLayout.addWidget(self.createMysqlDBcomboBox,3,0,1,2)
+        self.createDBGridLayout.addWidget(self.launchCRDBButton,4,3)
         self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
 
         return self.createDatabaseQWidget
@@ -386,3 +441,5 @@ class Ui_MainWindow(object):
         self.actionExit.setText(_translate("MainWindow", "Exit"))
         self.actionabout_version.setText(_translate("MainWindow", "about version"))
         self.actionmanual.setText(_translate("MainWindow", "manual"))
+        self.createMysqlDBcomboBox.setItemText(0, _translate("MainWindow", "Simple deploy"))
+        self.createMysqlDBcomboBox.setItemText(1, _translate("MainWindow", "Parallel deploy"))

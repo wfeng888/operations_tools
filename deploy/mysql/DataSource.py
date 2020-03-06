@@ -6,7 +6,7 @@ from mysql.connector.pooling import PooledMySQLConnection,MySQLConnectionPool
 
 from deploy.mysql.Exception import ParamNotMatchException
 
-from public_module.config import CONFIG, MYSQL_CATEGORY
+from public_module.config import  MYSQL_CATEGORY,getConfig
 
 
 class AbstractDataSource(metaclass=ABCMeta):
@@ -82,4 +82,6 @@ class MysqlPooledDataSource(AbstractDataSource):
     def get_conn(self):
         return PooledMySQLConnection(self,self._pool.get_connection())
 
-DATASOURCE = DBUtilPooledDBDataSource(**CONFIG[MYSQL_CATEGORY])
+
+def getDS():
+    return DBUtilPooledDBDataSource(**getConfig()[MYSQL_CATEGORY])

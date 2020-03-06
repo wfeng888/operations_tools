@@ -4,6 +4,7 @@ from os import path
 
 from deploy.fields import FieldMeta
 import log
+from public_module.global_vars import  ThreadSafeHouse
 
 MYSQL_CATEGORY = 'mysql'
 MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG = 'sqldirectory'
@@ -33,7 +34,8 @@ def init_mysqlconfig(**kw):
         for k,v in mConfigParser.items(MYSQL_CATEGORY):
             kw[k] = v
     try:
-        CONFIG[MYSQL_CATEGORY] = {}
+        if not CONFIG.get(MYSQL_CATEGORY):
+            CONFIG[MYSQL_CATEGORY] = {}
         CONFIG[MYSQL_CATEGORY]['host'] = mysqlconfig.host = kw['host']
         CONFIG[MYSQL_CATEGORY]['port'] = mysqlconfig.port = kw['port']
         CONFIG[MYSQL_CATEGORY]['user'] = mysqlconfig.user = kw['user']
@@ -66,5 +68,30 @@ def checkGeneralConfigForMysql():
     global CONFIG
     return _checkEqual(CONFIG[MYSQL_CATEGORY],MYSQL_GENERAL_CONFIG)
 
+
+
+
+def getMysqlHost():
+    return CONFIG[MYSQL_CATEGORY].get('host')
+
+def getMysqlPort():
+    return CONFIG[MYSQL_CATEGORY].get('port')
+
+def getMysqlUser():
+    return CONFIG[MYSQL_CATEGORY].get('user')
+
+def getMysqlDatabase():
+    return CONFIG[MYSQL_CATEGORY].get('database')
+
+def getMysqlPassword():
+    return CONFIG[MYSQL_CATEGORY].get('password')
+
+def getConfig():
+    _config =  threadSafeConfig.get()
+    return _config if _config else CONFIG
+
 CONFIG = {}
 init_mysqlconfig()
+
+
+threadSafeConfig = ThreadSafeHouse(CONFIG)

@@ -4,19 +4,21 @@ from mysql.connector import Error
 
 import log
 from parse.outer_parse import simple_parse
-from public_module.config import CONFIG, MYSQL_CATEGORY
-from deploy.mysql.DataSource import DATASOURCE
+from public_module.config import getConfig, MYSQL_CATEGORY
+from deploy.mysql.DataSource import getDS
 from deploy.mysql import DBUtils
 import time
 
 def exec_stts(statements):
-    dbexists =  DBUtils.isDBExists(CONFIG[MYSQL_CATEGORY]['database'])
+    _config = getConfig()
+    dbexists =  DBUtils.isDBExists(_config[MYSQL_CATEGORY]['database'])
     try:
-        conn = DATASOURCE.get_conn()
+        ds = getDS()
+        conn = ds.get_conn()
         with conn.cursor() as cursor:
             if not dbexists:
-                cursor.execute(DBUtils.SQL_CREATE_DATABASE.format(CONFIG[MYSQL_CATEGORY]['database']))
-                conn.database = CONFIG[MYSQL_CATEGORY]['database']
+                cursor.execute(DBUtils.SQL_CREATE_DATABASE.format(_config[MYSQL_CATEGORY]['database']))
+                conn.database = _config[MYSQL_CATEGORY]['database']
             for stt in statements:
                 try:
                     log.debug('exec statement:{}'.format(stt))
@@ -27,6 +29,7 @@ def exec_stts(statements):
                     log.error(traceback.format_exc())
     finally:
         conn.close()
+        ds.close()
 
 
 def exec(sqlfiles):
