@@ -39,7 +39,7 @@ def list_sqlfile_new(filepath):
     return None,0
 
 if '__main__' == __name__:
-    sqlfiles,num = list_sqlfile_new('C:/Users/ZNV/Desktop/znvdb/DCVS-DB/master/DCVS-DB/1.0')
+    sqlfiles,num = list_sqlfile_new('C:/Users/ZNV/Desktop/znvdb/vcms2.0/scimdb_objects/procedure')
     print(num)
     print(sqlfiles)
     # SimpleDeploy.exec(sqlfiles)

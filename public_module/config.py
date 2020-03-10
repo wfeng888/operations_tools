@@ -24,6 +24,21 @@ class MysqlConfig(ConfigBase):
     database:str
 
 
+class BackupConfig(MysqlConfig):
+    ssh_port:int
+    ssh_user:str
+    ssh_password:str
+    backup_base_dir:str
+    backup_mode:str
+    full_backup_base:str
+    databases:list
+    compress:bool
+    compress_threadnum:int
+    defaults_file:str
+    socket_file:str
+
+
+
 def init_mysqlconfig(**kw):
     global CONFIG
     mysqlconfig = MysqlConfig()
@@ -95,3 +110,6 @@ init_mysqlconfig()
 
 
 threadSafeConfig = ThreadSafeHouse(CONFIG)
+
+
+

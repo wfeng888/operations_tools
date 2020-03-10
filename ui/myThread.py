@@ -32,7 +32,7 @@ class MyThread(QThread):
     msgUpdate = pyqtSignal(int,str)
     beginTask =  pyqtSignal(int)
     finishTask = pyqtSignal(int,int,bool)
-    def __init__(self,runfunc,id):
+    def __init__(self,runfunc,id,args=()):
         super(MyThread, self).__init__()
         self._runFunc = runfunc
         self._id = id
@@ -40,6 +40,7 @@ class MyThread(QThread):
         self._notifier = NotifyCombine(self,self,self._id)
         self._runningResult = -1
         self._taskresult = False
+        self._args = args
 
     def run(self):
         try:
@@ -48,7 +49,7 @@ class MyThread(QThread):
             # locker = QMutexLocker(QMutex())
             addNotifier(self._notifier)
             self._state = self.RUNNING
-            self._taskresult = self._runFunc()
+            self._taskresult = self._runFunc(*self._args)
             if not isinstance(self._taskresult,bool):
                 self._taskresult = True if self._taskresult else False
             self._state = self.FINISHED
