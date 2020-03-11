@@ -6,7 +6,6 @@ from deploy.mysql.DataSource import getDS
 from deploy.mysql.DBUtils import formatErrorMsg, isDBExists
 
 SIMPLE_DEPLOY,PARALLEL_DEPLOY = range(2)
-SQL_CREATE_DATABASE = r'create database {}'
 
 def execute_createDB(mode=SIMPLE_DEPLOY):
 

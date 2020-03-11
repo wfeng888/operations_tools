@@ -4,6 +4,8 @@ import traceback
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
 from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy
+
+from deploy.mysql.backup import backup, restore
 from deploy.mysql.mysql_exec import execute_createDB
 from deploy.mysql import DBUtils
 from public_module import config
@@ -204,18 +206,21 @@ class Ui_MainWindow(object):
         self._taskState[id]=TASK_IDLE
         self._checkButtonEnable(id)
         if id == MYSQL_CHECK_ALIVE:
-            msg = 'THANK GOD!Mysql service is alive.' if taskResult else 'TOO BAD! Mysql service is down!'
+            msg = 'THANK GOD!Mysql service is alive.' if taskResult == MyThread.SUCCESS else 'TOO BAD! Mysql service is down!'
             self.writeLog(id,msg)
 
 
-    def _launchTask(self,func,id):
+    def _launchTask(self,func,id,tabtitle=None,pargs=()):
         try:
-            self._mysqlCreateDBThread = MyThread(func,id)
-            self._mysqlCreateDBThread.progressUpdate.connect(self.updateProgress)
-            self._mysqlCreateDBThread.msgUpdate.connect(self.writeLog)
-            self._mysqlCreateDBThread.beginTask.connect(self._taskStartCallback)
-            self._mysqlCreateDBThread.finishTask.connect(self._taskFinishCallback)
-            self._mysqlCreateDBThread.start(MyThread.LowPriority)
+            if not self.logCommandTabs.get(id):
+                self.logCommandTabs[id] = self._addTabPage(tabtitle,self.logCommandTabWidget)
+            self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[id].get(TABPAGE))
+            _taskThread = MyThread(func,id,args=pargs)
+            _taskThread.progressUpdate.connect(self.updateProgress)
+            _taskThread.msgUpdate.connect(self.writeLog)
+            _taskThread.beginTask.connect(self._taskStartCallback)
+            _taskThread.finishTask.connect(self._taskFinishCallback)
+            _taskThread.start(MyThread.LowPriority)
         except BaseException as e:
             log.error(traceback.format_exc())
 
@@ -223,13 +228,18 @@ class Ui_MainWindow(object):
         log.debug('begin create database')
         self._launchTask(execute_createDB,MYSQL_CREATE_DB)
 
+    def _launchBackupMysql(self):
+        log.debug('Begin to backup mysql !')
+        self._launchTask(backup,MYSQL_BACKUP,'backMysql',pargs=(1,))
+
+    def _launchRestoreMysql(self):
+        log.debug('Begin to restore mysql!')
+        self._launchTask(restore,MYSQL_RESTORE,'restoreMysql',pargs=(1,))
 
     def _launchCheckMysqlAlive(self):
-        if not self.logCommandTabs.get(MYSQL_CHECK_ALIVE):
-            self.logCommandTabs[MYSQL_CHECK_ALIVE] = self._addTabPage('checkMysqlAlive',self.logCommandTabWidget)
-        self.logCommandTabWidget.setCurrentWidget(self.logCommandTabs[MYSQL_CHECK_ALIVE].get(TABPAGE))
-        self.writeLog(MYSQL_CHECK_ALIVE,'Begin to check mysql !')
-        self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE)
+        log.debug('Begin to check mysql !')
+        self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE,'checkMysqlAlive')
+
 
     def _addCheckBox(self,title,checked=False):
         checkBox = QtWidgets.QCheckBox(title)
@@ -237,6 +247,22 @@ class Ui_MainWindow(object):
         checkBox.setEnabled(True)
         checkBox.setChecked(checked)
         return checkBox
+
+    def _setupBackupMysqlWidget(self):
+        self.backupMysqlQWidget = QtWidgets.QWidget()
+        self.backupMysqlQWidget.setObjectName("backupMysqlQWidget")
+        self.backupMysqlGridLayout = QtWidgets.QGridLayout()
+        self.launchBackupMysqlButton = self._createQCommandLinkButton('backup',self._launchBackupMysql,True)
+        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,1,1)
+        self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
+
+    def _setupRestoreMysqlWidget(self):
+        self.restoreMysqlQWidget = QtWidgets.QWidget()
+        self.restoreMysqlQWidget.setObjectName("restoreMysqlQWidget")
+        self.restoreMysqlGridLayout = QtWidgets.QGridLayout()
+        self.launchRestoreMysqlButton = self._createQCommandLinkButton('restore',self._launchRestoreMysql,True)
+        self.restoreMysqlGridLayout.addWidget(self.launchRestoreMysqlButton,1,1)
+        self.restoreMysqlQWidget.setLayout(self.restoreMysqlGridLayout)
 
     def _setupCreateDatabaseWidget(self):
         self.createDatabaseQWidget = QtWidgets.QWidget()
@@ -322,22 +348,12 @@ class Ui_MainWindow(object):
 
         self._setupCreateDatabaseWidget()
         self._setupMysqlCheckAliveWidget()
+        self._setupBackupMysqlWidget()
+        self._setupRestoreMysqlWidget()
         self.mysqlActionBox.addItem(self.createDatabaseQWidget, "")
         self.mysqlActionBox.addItem(self.checkAliveQWidget, "")
-
-
-        self.backupQWidget = QtWidgets.QWidget()
-        self.backupQWidget.setObjectName("backupQWidget")
-        self.backupButton = QtWidgets.QCommandLinkButton(self.backupQWidget)
-        self.backupButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
-        self.backupButton.setObjectName("backupButton")
-        self.mysqlActionBox.addItem(self.backupQWidget, "")
-        self.restoreQWidget = QtWidgets.QWidget()
-        self.restoreQWidget.setObjectName("restoreQWidget")
-        self.restoreButton = QtWidgets.QCommandLinkButton(self.restoreQWidget)
-        self.restoreButton.setGeometry(QtCore.QRect(260, 0, 131, 41))
-        self.restoreButton.setObjectName("restoreButton")
-        self.mysqlActionBox.addItem(self.restoreQWidget, "")
+        self.mysqlActionBox.addItem(self.backupMysqlQWidget, "")
+        self.mysqlActionBox.addItem(self.restoreMysqlQWidget, "")
         self.mysqlCommandQWidget = QtWidgets.QWidget()
         self.mysqlCommandQWidget.setObjectName("mysqlCommandQWidget")
         self.mysqlCommandButton = QtWidgets.QCommandLinkButton(self.mysqlCommandQWidget)
@@ -453,10 +469,10 @@ class Ui_MainWindow(object):
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), _translate("MainWindow", "createdb"))
         self.checkMysqlAliveButton.setText(_translate("MainWindow", "do check"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "checkAlive"))
-        self.backupButton.setText(_translate("MainWindow", "do backup"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupQWidget), _translate("MainWindow", "backup"))
-        self.restoreButton.setText(_translate("MainWindow", "do restore"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreQWidget), _translate("MainWindow", "restore"))
+        self.launchBackupMysqlButton.setText(_translate("MainWindow", "do backup"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupMysqlQWidget), _translate("MainWindow", "backup"))
+        self.launchRestoreMysqlButton.setText(_translate("MainWindow", "do restore"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreMysqlQWidget), _translate("MainWindow", "restore"))
         self.mysqlCommandButton.setText(_translate("MainWindow", "enter"))
         self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.mysqlCommandQWidget), _translate("MainWindow", "command"))
         self.hostLabel.setText(_translate("MainWindow", "host"))

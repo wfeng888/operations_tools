@@ -45,6 +45,10 @@ class ParamikoConnection(ConnectionBase):
     def close_channel(self,channel:Channel):
         channel.close()
 
-    def disconnect(self):
-        if not self._sclint:
+    def close(self):
+        if self._sclint:
             self._sclint.close()
+
+    def open_sftp(self):
+        self._init_client()
+        return self._sclint.open_sftp()

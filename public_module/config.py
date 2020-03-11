@@ -39,6 +39,8 @@ class BackupConfig(MysqlConfig):
 
 
 
+
+
 def init_mysqlconfig(**kw):
     global CONFIG
     mysqlconfig = MysqlConfig()

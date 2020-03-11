@@ -31,17 +31,19 @@ class MyThread(QThread):
     progressUpdate = pyqtSignal(int,float)
     msgUpdate = pyqtSignal(int,str)
     beginTask =  pyqtSignal(int)
-    finishTask = pyqtSignal(int,int,bool)
-    def __init__(self,runfunc,id,args=()):
+    finishTask = pyqtSignal(int,int,int)
+    def __init__(self,runfunc,id,notifier=None,args=()):
         super(MyThread, self).__init__()
         self._runFunc = runfunc
         self._id = id
         self._state = self.NOT_BEGIN
-        self._notifier = NotifyCombine(self,self,self._id)
+        self._notifier = notifier
+        if not self._notifier:
+            self._notifier = NotifyCombine(self,self,self._id)
         self._runningResult = -1
-        self._taskresult = False
+        self._taskresult = 1
         self._args = args
-
+        log.ExceptionHook()
     def run(self):
         try:
             threadSafeConfig.add()
@@ -49,12 +51,10 @@ class MyThread(QThread):
             # locker = QMutexLocker(QMutex())
             addNotifier(self._notifier)
             self._state = self.RUNNING
-            self._taskresult = self._runFunc(*self._args)
-            if not isinstance(self._taskresult,bool):
-                self._taskresult = True if self._taskresult else False
+            self._taskresult = self.transformResult(self._runFunc(*self._args))
             self._state = self.FINISHED
             self._runningResult = self.SUCCESS
-            removeNotifier(self._notifier)
+            removeNotifier()
         except BaseException as e:
             log.error(traceback.format_exc())
             self._runningResult = self.FAIL
@@ -62,6 +62,20 @@ class MyThread(QThread):
         finally:
             self.finishTask.emit(self._id,self._runningResult,self._taskresult)
             threadSafeConfig.remove()
+
+    def transformResult(self,result):
+        if result == None:
+            result = self.FAIL
+        elif  isinstance(result,bool):
+            result = self.SUCCESS if result else self.FAIL
+        elif isinstance(result,str):
+            if result.upper() == 'TRUE':
+                result = self.SUCCESS
+            else:
+                result = self.FAIL
+        if not isinstance(self,int):
+            result = self.FAIL
+        return result
 
     def isRunning(self):
         return self._state == self.RUNNING
