@@ -15,44 +15,23 @@ from ui.myThread import MyThread
 SHELL_SUCCESS=0
 DEFAULT_BUFFER_SIZE=4096
 
-def display_log(stdout):
-    try:
-        data = stdout.readline()
-        while(data):
-            log.info(to_text(data))
-            data = stdout.readline()
-    except BaseException as e:
-        log.error(traceback.format_exc())
-
-def display_log_bychannel(channel):
-    try:
-        data = channel.recv(DEFAULT_BUFFER_SIZE)
-        while(data):
-            log.info(to_text(data))
-            data = channel.recv(DEFAULT_BUFFER_SIZE)
-    except BaseException as e:
-        log.error(traceback.format_exc())
-
 def backup(backupconfig:BackupConfig):
     try:
-        pk = ParamikoConnection('10.45.156.210','mysql','8845')
-        cmd = '/usr/bin/xtrabackup --defaults-file=/database/my3578/my.cnf -usuper -p8845  --target-dir="/data/backup/my3578/2020-03-09" --slave-info --safe-slave-backup  --backup  --safe-slave-backup-timeout=3000   --socket=/database/my3578/var/3578.socket  2>&1 '
-        log.debug(cmd)
-        stat,_ = execute_cmd(cmd,sclient=pk)
-        log.info(stat)
-        if stat == SHELL_SUCCESS:
-            cmd = b'echo "compress=True \r\ncompress-threads=4 " > /data/backup/my3578/2020-03-09/backup_params.record'
+        with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+            cmd = '/usr/bin/xtrabackup --defaults-file=/database/my3578/my.cnf -usuper -p8845  --target-dir="/data/backup/my3578/2020-03-09" --slave-info --safe-slave-backup  --backup  --safe-slave-backup-timeout=3000   --socket=/database/my3578/var/3578.socket  2>&1 '
+            log.debug(cmd)
             stat,_ = execute_cmd(cmd,sclient=pk)
-            log.info(str(stat))
-            cmd = r'cp /database/my3578/my.cnf  /data/backup/my3578/2020-03-09/'
-            stat,_ = execute_cmd(cmd,sclient=pk)
-            log.info(str(stat))
-        return stat
+            log.info(stat)
+            if stat == SHELL_SUCCESS:
+                cmd = b'echo "compress=True \r\ncompress-threads=4 " > /data/backup/my3578/2020-03-09/backup_params.record'
+                stat,_ = execute_cmd(cmd,sclient=pk)
+                log.info(str(stat))
+                cmd = r'cp /database/my3578/my.cnf  /data/backup/my3578/2020-03-09/'
+                stat,_ = execute_cmd(cmd,sclient=pk)
+                log.info(str(stat))
+            return stat
     except BaseException as e:
         log.error(traceback.format_exc())
-    finally:
-        if pk:
-            pk.close()
 
 
 
@@ -79,7 +58,6 @@ def restore(backupconfig:BackupConfig):
                     with open(tmpfile,'w+') as f:
                         for sec in mycnf.sections():
                             f.write('[' + sec + ']\r\n')
-                            # configstr += '[' + sec + ']' + '\r\n'
                             for k,v in mycnf.items(sec,True):
                                 if k == 'basedir':
                                     basepath = v
@@ -87,10 +65,8 @@ def restore(backupconfig:BackupConfig):
                                 v = v.replace("/database/my3578","/database/my3579")
                                 v = v.replace("3578","3579")
                                 if not v or v == 'None' :
-                                    # configstr += k + '\r\n'
                                     f.write(k + '\r\n')
                                 else:
-                                    # configstr += k+'=' + v  + '\r\n'
                                     f.write(k + '=' + v + '\r\n')
                     # cmd = 'cat>/database/my3579/my.cnf<<EOF\r\n'+configstr+'EOF'
                     transferFileToRemote(tmpfile,'/database/my3579/my.cnf',pk)
@@ -112,7 +88,7 @@ def restore(backupconfig:BackupConfig):
     except BaseException as e:
         log.error(traceback.format_exc())
 
-def transferFileToRemote(localpath,remotepath,sclient):
+def transferFileToRemote(localpath,remotepath,sclient,compress=True):
     try:
         sftpclient = sclient.open_sftp()
         sftpclient.put(localpath,remotepath)
@@ -122,6 +98,16 @@ def transferFileToRemote(localpath,remotepath,sclient):
         log.error(traceback.format_exc())
         return False
 
+
+def transferFileFromRemote(remotepath,localpath,sclient,compress=True):
+    try:
+        sftpclient = sclient.open_sftp()
+        sftpclient.get(remotepath,localpath)
+        return True
+    except IOError as e:
+        log.error('transfer local file {} to remote {} failed.'.format(localpath,remotepath))
+        log.error(traceback.format_exc())
+        return False
 
 def execute_cmd(cmd,channel=None,sclient=None,consumeoutput=True,logtofile=None):
     try:

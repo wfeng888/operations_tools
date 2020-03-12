@@ -11,8 +11,7 @@ from deploy.mysql import DBUtils
 from public_module import config
 
 import log
-from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, CONFIG, \
-    MYSQL_CATEGORY, checkGeneralConfigForMysql
+from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, checkGeneralConfigForMysql
 
 from ui.myThread import MyThread
 
@@ -20,7 +19,10 @@ from ui.myThread import MyThread
 MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5)
 TASK_IDLE,TASK_BUSY = range(2)
 TABPAGE,LOG,COMMAND,PROGRESS = range(4)
-
+MYSQL_BACKUP_LOGIC,MYSQL_BACKUP_FULL,MYSQL_BACKUP_INCREMENT = range(3)
+# RADIO_GROUP = {
+#     MYSQL_BACKUP:{MYSQL_BACKUP_LOGIC:}
+# }
 
 
 
@@ -29,9 +31,11 @@ TABPAGE,LOG,COMMAND,PROGRESS = range(4)
 class Ui_MainWindow(object):
 
 
+
     def __init__(self):
         self.logCommandTabs = {}
         self._taskState={}
+        self._translate = QtCore.QCoreApplication.translate
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
@@ -169,9 +173,22 @@ class Ui_MainWindow(object):
         self.passwordLineEdit.setText(config.getMysqlPassword())
         self._checkButtonEnable()
 
+    def _createRadioButton(self,title,member,buttongroup=None,id=-1):
+        radioButton = QtWidgets.QRadioButton()
+        radioButton.setObjectName(title)
+        radioButton.setText(self._translate("MainWindow", title))
+        if member:
+            radioButton.toggled.connect(member)
+        if buttongroup:
+            buttongroup.addButton(radioButton)
+        return radioButton
+
+
+
     def _createButton(self, text, member,enabled=True):
         button = QPushButton(text)
-        button.clicked.connect(member)
+        if member:
+            button.clicked.connect(member)
         button.setEnabled(enabled)
         return button
     
@@ -189,11 +206,20 @@ class Ui_MainWindow(object):
         return dirLineEdit
 
 
+
+
     def _getSQLFileDir(self):
         directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
         self.sqlFileDirLineText.setText(directory)
         setSQLFileDirectory(directory)
         self._checkButtonEnable(MYSQL_CREATE_DB)
+
+    def _getFileDir(self,displayobj=None,callback=None):
+        directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
+        if displayobj:
+            displayobj.setText(directory)
+        if callback:
+            callback(directory)
 
     # def _setButtonEnable(self,id,enabled):
     #     self.setEnable[id](enabled)
@@ -248,12 +274,58 @@ class Ui_MainWindow(object):
         checkBox.setChecked(checked)
         return checkBox
 
+    def _addEditLine(self,title,echomode=None):
+        lineEdit = QtWidgets.QLineEdit()
+        lineEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
+        lineEdit.setClearButtonEnabled(False)
+        lineEdit.setObjectName(title)
+        if echomode:
+            lineEdit.setEchoMode(echomode)
+        return lineEdit
+
     def _setupBackupMysqlWidget(self):
         self.backupMysqlQWidget = QtWidgets.QWidget()
         self.backupMysqlQWidget.setObjectName("backupMysqlQWidget")
         self.backupMysqlGridLayout = QtWidgets.QGridLayout()
+        self._myqslBackupLogicRadio = self._createRadioButton('logic',None)
+        self._myqslBackupFullRadio = self._createRadioButton('full',None)
+        self._myqslBackupIncrementRadio = self._createRadioButton('increment',None)
+        self._mysqlBackupCompressCheckBox = self._addCheckBox('compress',True)
+        self._mysqlBackupToLocalCheckBox = self._addCheckBox('save local',True)
+        self._mysqlSSHUserLabel = QLabel("ssh user:")
+        self._mysqlSSHPasswordLabel = QLabel("ssh password:")
+        self._mysqlSSHPortLabel = QLabel("ssh port:")
+        self._mysqlBackupRemotePathLabel = QLabel("remote backup path")
+        self._mysqlBackupLocalPathLabel = QLabel("local save path")
+        self._mysqlSSHUserEditline = self._addEditLine("mysqlsshuser")
+        self._mysqlSSHPasswordEditline = self._addEditLine("mysqlsshpassword",QtWidgets.QLineEdit.Password)
+        self._mysqlSSHPortEditline = self._addEditLine("mysqlsshport")
+        self._mysqlBackupLocalPathEditLine = self._addEditLine('mysqlBackupLocalPath')
+        self._mysqlbackupRemotePathEditLine = self._addEditLine('mysqlBackupRemotePath')
+
+        self._mysqlBackupLocalPathButton = self._createButton('browse',None)
+        self._mysqlBackupRemotePathButton = self._createButton('browse',None)
+
+
         self.launchBackupMysqlButton = self._createQCommandLinkButton('backup',self._launchBackupMysql,True)
-        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,1,1)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupLogicRadio,0,0)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupFullRadio,0,1)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupIncrementRadio,0,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserLabel,1,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserEditline,1,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortLabel,2,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortEditline,2,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordLabel,3,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordEditline,3,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupCompressCheckBox,4,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupToLocalCheckBox,4,1)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRemotePathLabel,5,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlbackupRemotePathEditLine,5,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRemotePathButton,5,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathLabel,6,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathEditLine,6,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathButton,6,4)
+        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,7,0)
         self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
 
     def _setupRestoreMysqlWidget(self):
@@ -454,50 +526,49 @@ class Ui_MainWindow(object):
         splitter.addWidget(logTextEdit)
         splitter.addWidget(commandTextEdit)
         tabWidget.addTab(tab, "")
-        _translate = QtCore.QCoreApplication.translate
-        tabWidget.setTabText(tabWidget.indexOf(tab), _translate("MainWindow", title))
+        tabWidget.setTabText(tabWidget.indexOf(tab), self._translate("MainWindow", title))
         tabWidget.setCurrentWidget(tabWidget)
 
         return  {TABPAGE:tab,LOG:logTextEdit,COMMAND:commandTextEdit}
 
     def retranslateUi(self, MainWindow):
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.mainPannelTabWidget.setToolTip(_translate("MainWindow", "<html><head/><body><p>mysql</p></body></html>"))
-        self.mainPannelTabWidget.setWhatsThis(_translate("MainWindow", "<html><head/><body><p>MySQL</p></body></html>"))
-        self.launchCRDBButton.setText(_translate("MainWindow", "create"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), _translate("MainWindow", "createdb"))
-        self.checkMysqlAliveButton.setText(_translate("MainWindow", "do check"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), _translate("MainWindow", "checkAlive"))
-        self.launchBackupMysqlButton.setText(_translate("MainWindow", "do backup"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupMysqlQWidget), _translate("MainWindow", "backup"))
-        self.launchRestoreMysqlButton.setText(_translate("MainWindow", "do restore"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreMysqlQWidget), _translate("MainWindow", "restore"))
-        self.mysqlCommandButton.setText(_translate("MainWindow", "enter"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.mysqlCommandQWidget), _translate("MainWindow", "command"))
-        self.hostLabel.setText(_translate("MainWindow", "host"))
-        self.portLabel.setText(_translate("MainWindow", "port"))
-        self.userLabel.setText(_translate("MainWindow", "user"))
-        self.databaseLabel.setText(_translate("MainWindow", "database"))
-        self.passwordLabel.setText(_translate("MainWindow", "password"))
-        self.commitPubConfigButton.setText(_translate("MainWindow", "done"))
-        self.label.setText(_translate("MainWindow", "公共配置"))
-        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.mysqlQWidget), _translate("MainWindow", "MySQL"))
-        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.esQWidget), _translate("MainWindow", "ElasticSearch"))
-        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.oracleQWidget), _translate("MainWindow", "Oracle"))
-        self.menuFile.setTitle(_translate("MainWindow", "File"))
-        self.menuhelp.setTitle(_translate("MainWindow", "help"))
-        self.actionExit.setText(_translate("MainWindow", "Exit"))
-        self.actionabout_version.setText(_translate("MainWindow", "about version"))
-        self.actionmanual.setText(_translate("MainWindow", "manual"))
-        self.createMysqlDBDeployModecomboBox.setItemText(0, _translate("MainWindow", "Simple deploy"))
-        self.createMysqlDBDeployModecomboBox.setItemText(1, _translate("MainWindow", "Parallel deploy"))
-        self.createMysqlDBLogLevelcomboBox.setItemText(0, _translate("MainWindow", "DEBUG"))
-        self.createMysqlDBLogLevelcomboBox.setItemText(1, _translate("MainWindow", "VERBOSE"))
-        self.createMysqlDBLogLevelcomboBox.setItemText(2, _translate("MainWindow", "INFO"))
-        self.createMysqlDBLogLevelcomboBox.setItemText(3, _translate("MainWindow", "WARNING"))
-        self.createMysqlDBLogLevelcomboBox.setItemText(4, _translate("MainWindow", "ERROR"))
-        self.createMysqlDBDeployModeLabel.setText(_translate("MainWindow", "deploy mode"))
-        self.createMysqlDBLogLevelLabel.setText(_translate("MainWindow", "log level"))
+
+        MainWindow.setWindowTitle(self._translate("MainWindow", "MainWindow"))
+        self.mainPannelTabWidget.setToolTip(self._translate("MainWindow", "<html><head/><body><p>mysql</p></body></html>"))
+        self.mainPannelTabWidget.setWhatsThis(self._translate("MainWindow", "<html><head/><body><p>MySQL</p></body></html>"))
+        self.launchCRDBButton.setText(self._translate("MainWindow", "create"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), self._translate("MainWindow", "createdb"))
+        self.checkMysqlAliveButton.setText(self._translate("MainWindow", "do check"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), self._translate("MainWindow", "checkAlive"))
+        self.launchBackupMysqlButton.setText(self._translate("MainWindow", "do backup"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupMysqlQWidget), self._translate("MainWindow", "backup"))
+        self.launchRestoreMysqlButton.setText(self._translate("MainWindow", "do restore"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreMysqlQWidget), self._translate("MainWindow", "restore"))
+        self.mysqlCommandButton.setText(self._translate("MainWindow", "enter"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.mysqlCommandQWidget), self._translate("MainWindow", "command"))
+        self.hostLabel.setText(self._translate("MainWindow", "host"))
+        self.portLabel.setText(self._translate("MainWindow", "port"))
+        self.userLabel.setText(self._translate("MainWindow", "user"))
+        self.databaseLabel.setText(self._translate("MainWindow", "database"))
+        self.passwordLabel.setText(self._translate("MainWindow", "password"))
+        self.commitPubConfigButton.setText(self._translate("MainWindow", "done"))
+        self.label.setText(self._translate("MainWindow", "公共配置"))
+        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.mysqlQWidget), self._translate("MainWindow", "MySQL"))
+        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.esQWidget), self._translate("MainWindow", "ElasticSearch"))
+        self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.oracleQWidget), self._translate("MainWindow", "Oracle"))
+        self.menuFile.setTitle(self._translate("MainWindow", "File"))
+        self.menuhelp.setTitle(self._translate("MainWindow", "help"))
+        self.actionExit.setText(self._translate("MainWindow", "Exit"))
+        self.actionabout_version.setText(self._translate("MainWindow", "about version"))
+        self.actionmanual.setText(self._translate("MainWindow", "manual"))
+        self.createMysqlDBDeployModecomboBox.setItemText(0, self._translate("MainWindow", "Simple deploy"))
+        self.createMysqlDBDeployModecomboBox.setItemText(1, self._translate("MainWindow", "Parallel deploy"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(0, self._translate("MainWindow", "DEBUG"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(1, self._translate("MainWindow", "VERBOSE"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(2, self._translate("MainWindow", "INFO"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(3, self._translate("MainWindow", "WARNING"))
+        self.createMysqlDBLogLevelcomboBox.setItemText(4, self._translate("MainWindow", "ERROR"))
+        self.createMysqlDBDeployModeLabel.setText(self._translate("MainWindow", "deploy mode"))
+        self.createMysqlDBLogLevelLabel.setText(self._translate("MainWindow", "log level"))
 
 

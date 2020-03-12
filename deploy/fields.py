@@ -31,7 +31,8 @@ class FieldMeta(type):
         dicts['_attributes'] = {}
         dicts['_properties'] = {}
         for name in dicts['__annotations__'].keys():
-            names.append(name)
+            if not name.startswith('__'):
+                names.append(name)
         for name in names:
             getter = partial(getx,'_'+name)
             setter = partial(setx,'_'+name)

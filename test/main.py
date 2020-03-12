@@ -1,13 +1,12 @@
 import os
+import sys
 import threading
 from pathlib import Path
 
 from deploy.mysql.backup import execute_cmd
 from deploy.until import list_sqlfile, _sort, valid
-from deploy.mysql import  SimpleDeploy
-import time
-
 from public_module import to_bytes, to_text
+from public_module.config import BackupConfig
 from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 
 
@@ -69,8 +68,15 @@ def execute_backupground():
 
 
 if '__main__' == __name__:
+    bc = BackupConfig()
+    setattr(bc,'databases','db1,db2,db3')
+    setattr(bc,'compress','trUE')
+    print(bc.databases)
+    print(bc.compress)
+    # bc.databases = 'db1;db2;db3'
+    # print(bc.databases)
     # test_paramiko()
-    execute_backupground()
+    # execute_backupground()
     # sqlfiles,num = list_sqlfile_new('C:/Users/ZNV/Desktop/znvdb/vcms2.0/scimdb_objects/procedure')
     # print(num)
     # print(sqlfiles)
@@ -80,3 +86,4 @@ if '__main__' == __name__:
     # sort(v)
     # for i in  range(3,4):
     #     print(i)
+    print(sys.platform)

@@ -1,4 +1,5 @@
-
+import os
+import sys
 from configparser import ConfigParser
 from os import path
 
@@ -26,19 +27,56 @@ class MysqlConfig(ConfigBase):
 
 class BackupConfig(MysqlConfig):
     ssh_port:int
+    __ssh_port = {'options':(),'default':(22)}
     ssh_user:str
     ssh_password:str
     backup_base_dir:str
+    save_to_local:bool
+    local_path:str
     backup_mode:str
+    __backup_mode = {'options':('logic','full','increment'),'default':('full')}
     full_backup_base:str
     databases:list
     compress:bool
-    compress_threadnum:int
+    compress_threadnum:int = 4
     defaults_file:str
     socket_file:str
+    backup_software:str
+    __backup_software = {'options':('xtrabackup','restore'),'default':('xtrabackup')}
+    backup_software_path:str
+    os_platform:str = sys.platform
+    operate:str
+    __operate = {'options':('backup','restore'),'default':()}
+    remote_host:bool
+    backup_dir:str
+    base_fullbackup_dir:str
+
+    def check_enum(self,name):
+        if hasattr(self,name):
+            if hasattr(self,'__'+name):
+                return False if getattr(self,name) not in (getattr(self,'__'+name)).get('options') else True
+            return True
+        return False
+
+    def check_backupconfig(self):
+        if self.remote_host == None or self.backup_base_dir == None or self.backup_mode == None or self.port == None or self.defaults_file == None or self.backup_software == None \
+                or self.operate == None:
+            return False
+        if not (self.check_enum('backup_mode') and self.check_enum('operate') and (self.backup_mode in ('logic') or self.backup_mode not in 'logic'
+                                                                                   and self.check_enum('backup_software') and self.backup_software_path)):
+            return False
+        if self.backup_mode not in ('logic') and not self.defaults_file :
+            return False
+        if not (self.socket_file or self.port):
+            return False
+
+        if self.remote_host:
+            if
+
+        return True
 
 
-
+class XtrabackupConfig(BackupConfig):
 
 
 def init_mysqlconfig(**kw):
