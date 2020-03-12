@@ -1,7 +1,20 @@
+from functools import wraps
+
 from paramiko import SSHClient, WarningPolicy, Channel
 
 from public_module import to_bytes
 from public_module.ssh_connect import ConnectionBase, _DEFAULT_BUFFER_SIZE
+
+
+def initial_only(func):
+    @wraps(func)
+    def _inner_func(self,*args,**kwargs):
+        self._init_client()
+        return func(self,*args,**kwargs)
+
+    return _inner_func
+
+
 
 
 class ParamikoConnection(ConnectionBase):
@@ -28,13 +41,12 @@ class ParamikoConnection(ConnectionBase):
     def connect(self):
         self._init_client()
 
+    @initial_only
     def newChannel(self):
-        if not self._sclint:
-            self._init_client()
         channel = self._sclint.get_transport().open_session()
         channel.get_pty('vt100',200,50)
         stdout = channel.makefile('rb',_DEFAULT_BUFFER_SIZE)
-        stdin = channel.makefile_stdin('rb',_DEFAULT_BUFFER_SIZE)
+        stdin = channel.makefile_stdin('wb',_DEFAULT_BUFFER_SIZE)
         channel.set_combine_stderr(True)
         return channel,stdin,stdout
 
@@ -48,7 +60,8 @@ class ParamikoConnection(ConnectionBase):
     def close(self):
         if self._sclint:
             self._sclint.close()
+            del self._sclint
 
+    @initial_only
     def open_sftp(self):
-        self._init_client()
         return self._sclint.open_sftp()

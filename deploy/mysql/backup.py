@@ -59,56 +59,56 @@ def backup(backupconfig:BackupConfig):
 
 def restore(backupconfig:BackupConfig):
     try:
-        pk = ParamikoConnection('10.45.156.210','mysql','8845')
-        cmd = '/usr/bin/xtrabackup --target-dir="/data/backup/my3578/2020-03-09"  --prepare '
-        # cmd = r"netstat -apn|grep -w LISTEN|sed 's= \{1,\}= =g'|cut -d ' ' -f 4|cut -d':' -f 4|grep -v -E '^$'"
-        stat,_ = execute_cmd(cmd,sclient=pk)
-        if stat == SHELL_SUCCESS:
-            cmd = 'mkdir -p /database/my3579/data /database/my3579/var  /database/my3579/log'
+        with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+            cmd = '/usr/bin/xtrabackup --target-dir="/data/backup/my3578/2020-03-09"  --prepare '
+            # cmd = r"netstat -apn|grep -w LISTEN|sed 's= \{1,\}= =g'|cut -d ' ' -f 4|cut -d':' -f 4|grep -v -E '^$'"
             stat,_ = execute_cmd(cmd,sclient=pk)
             if stat == SHELL_SUCCESS:
-                cmd = 'cat /data/backup/my3578/2020-03-09/my.cnf'
-                stat,data = execute_cmd(cmd,sclient=pk,consumeoutput=False)
-                mycnf = ConfigParser(allow_no_value=True)
-                log.debug(to_text(data))
-                mycnf.read_string(to_text(data))
-                basepath = str()
-                tmpfile = path.join(path.split(__file__)[0],'my.cnf')
-                if path.exists(tmpfile):
-                    os.rename(tmpfile,tmpfile+time.strftime("%Y%m%d%H%M%S", time.localtime()))
-                with open(tmpfile,'w+') as f:
-                    for sec in mycnf.sections():
-                        f.write('[' + sec + ']\r\n')
-                        # configstr += '[' + sec + ']' + '\r\n'
-                        for k,v in mycnf.items(sec,True):
-                            if k == 'basedir':
-                                basepath = v
-                            v = str(v)
-                            v = v.replace("/database/my3578","/database/my3579")
-                            v = v.replace("3578","3579")
-                            if not v or v == 'None' :
-                                # configstr += k + '\r\n'
-                                f.write(k + '\r\n')
-                            else:
-                                # configstr += k+'=' + v  + '\r\n'
-                                f.write(k + '=' + v + '\r\n')
-                # cmd = 'cat>/database/my3579/my.cnf<<EOF\r\n'+configstr+'EOF'
-                transferFileToRemote(tmpfile,'/database/my3579/my.cnf',pk)
-                cmd = '/usr/bin/xtrabackup --defaults-file=/database/my3579/my.cnf --target-dir="/data/backup/my3578/2020-03-09" --copy-back '
+                cmd = 'mkdir -p /database/my3579/data /database/my3579/var  /database/my3579/log'
                 stat,_ = execute_cmd(cmd,sclient=pk)
-                cmd = 'cat /dev/null > /database/my3579/log/log.err'
-                execute_cmd(cmd,sclient=pk)
-                cmd = basepath+'/bin/mysqld_safe '+' --defaults-file=/database/my3579/my.cnf & '
-                stat,_ = execute_cmd(cmd,sclient=pk)
-                log.info(stat)
-                cmd = 'ps -ef|grep 3579|grep -w mysqld|wc -l'
-                stat,data = execute_cmd(cmd,sclient=pk,consumeoutput=False)
-                log.info(stat)
-                if not (stat == 0 and int(data) > 0):
-                    stat = 1
-                    log.info(stat)
-                    log.error('restored database start failed !')
-                return stat
+                if stat == SHELL_SUCCESS:
+                    cmd = 'cat /data/backup/my3578/2020-03-09/my.cnf'
+                    stat,data = execute_cmd(cmd,sclient=pk,consumeoutput=False)
+                    mycnf = ConfigParser(allow_no_value=True)
+                    log.debug(to_text(data))
+                    mycnf.read_string(to_text(data))
+                    basepath = str()
+                    tmpfile = path.join(path.split(__file__)[0],'my.cnf')
+                    if path.exists(tmpfile):
+                        os.rename(tmpfile,tmpfile+time.strftime("%Y%m%d%H%M%S", time.localtime()))
+                    with open(tmpfile,'w+') as f:
+                        for sec in mycnf.sections():
+                            f.write('[' + sec + ']\r\n')
+                            # configstr += '[' + sec + ']' + '\r\n'
+                            for k,v in mycnf.items(sec,True):
+                                if k == 'basedir':
+                                    basepath = v
+                                v = str(v)
+                                v = v.replace("/database/my3578","/database/my3579")
+                                v = v.replace("3578","3579")
+                                if not v or v == 'None' :
+                                    # configstr += k + '\r\n'
+                                    f.write(k + '\r\n')
+                                else:
+                                    # configstr += k+'=' + v  + '\r\n'
+                                    f.write(k + '=' + v + '\r\n')
+                    # cmd = 'cat>/database/my3579/my.cnf<<EOF\r\n'+configstr+'EOF'
+                    transferFileToRemote(tmpfile,'/database/my3579/my.cnf',pk)
+                    cmd = '/usr/bin/xtrabackup --defaults-file=/database/my3579/my.cnf --target-dir="/data/backup/my3578/2020-03-09" --copy-back '
+                    stat,_ = execute_cmd(cmd,sclient=pk)
+                    cmd = 'cat /dev/null > /database/my3579/log/log.err'
+                    execute_cmd(cmd,sclient=pk)
+                    start_shell = basepath + '/bin/mysqld_safe '+' --defaults-file=/database/my3579/my.cnf  & \r\n'
+                    execute_backupground(start_shell,pk)
+                    cmd = 'ps -ef|grep 3579|grep -v grep|grep mysqld '
+                    execute_cmd(cmd,sclient=pk)
+                    cmd = 'ps -ef|grep 3579|grep -v grep|grep mysqld |wc -l'
+                    stat,data = execute_cmd(cmd,sclient=pk,consumeoutput=False)
+                    if not (stat == 0 and int(data) > 0):
+                        stat = 1
+                        log.info(stat)
+                        log.error('restored database start failed !')
+                    return stat
     except BaseException as e:
         log.error(traceback.format_exc())
 
@@ -153,3 +153,21 @@ def execute_cmd(cmd,channel=None,sclient=None,consumeoutput=True,logtofile=None)
         return stat,result
     except BaseException as e:
         log.error(traceback.format_exc())
+
+
+def execute_backupground(cmd,pk,consumeoutput=True,logtofile=None):
+    channel,stdin,stdout = pk.newChannel()
+    channel.invoke_shell()
+    stdin.write(to_bytes(cmd))
+    stdin.flush()
+    def timerstop():
+        threading.Event().wait(3)
+        channel.close()
+    threading.Thread(target=timerstop).start()
+    data = stdout.readline()
+    while(data or not channel.closed):
+        if consumeoutput:
+            log.info(to_text(data))
+        if logtofile:
+            pass
+        data = stdout.readline()

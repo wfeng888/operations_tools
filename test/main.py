@@ -1,13 +1,14 @@
 import os
+import threading
 from pathlib import Path
 
+from deploy.mysql.backup import execute_cmd
 from deploy.until import list_sqlfile, _sort, valid
 from deploy.mysql import  SimpleDeploy
 import time
 
-
-
-
+from public_module import to_bytes, to_text
+from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 
 
 def list_sqlfile_new(filepath):
@@ -38,10 +39,41 @@ def list_sqlfile_new(filepath):
                 return filepath,1
     return None,0
 
+
+
+def test_paramiko():
+    with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+        # mysqlpath = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld_safe'
+        # start_shell = mysqlpath+' --defaults-file=/database/my3579/my.cnf '
+        # cmd = 'echo " nohup ' + start_shell + ' &" > /database/my3579/start.sh '
+        # execute_cmd(cmd,sclient=pk)
+        cmd = 'nohup sh /database/my3579/start.sh > /dev/null 2>&1 & '
+        stat,_ = execute_cmd(cmd,sclient=pk)
+
+
+def execute_backupground():
+    cmd = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld_safe --defaults-file=/database/my3579/my.cnf & \r\n'
+    with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+        channel,stdin,stdout = pk.newChannel()
+        channel.invoke_shell()
+        stdin.write(to_bytes(cmd))
+        stdin.flush()
+        def timerstop():
+            threading.Event().wait(3)
+            channel.close()
+        threading.Thread(target=timerstop).start()
+        data = stdout.readline()
+        while(data or not channel.closed):
+            print(to_text(data))
+            data = stdout.readline()
+
+
 if '__main__' == __name__:
-    sqlfiles,num = list_sqlfile_new('C:/Users/ZNV/Desktop/znvdb/vcms2.0/scimdb_objects/procedure')
-    print(num)
-    print(sqlfiles)
+    # test_paramiko()
+    execute_backupground()
+    # sqlfiles,num = list_sqlfile_new('C:/Users/ZNV/Desktop/znvdb/vcms2.0/scimdb_objects/procedure')
+    # print(num)
+    # print(sqlfiles)
     # SimpleDeploy.exec(sqlfiles)
     # print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     # v = ['1.0.2','1.0']
