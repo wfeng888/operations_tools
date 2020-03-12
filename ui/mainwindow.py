@@ -3,7 +3,8 @@ import traceback
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy
+from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy, \
+    QButtonGroup
 
 from deploy.mysql.backup import backup, restore
 from deploy.mysql.mysql_exec import execute_createDB
@@ -19,10 +20,10 @@ from ui.myThread import MyThread
 MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5)
 TASK_IDLE,TASK_BUSY = range(2)
 TABPAGE,LOG,COMMAND,PROGRESS = range(4)
-MYSQL_BACKUP_LOGIC,MYSQL_BACKUP_FULL,MYSQL_BACKUP_INCREMENT = range(3)
-# RADIO_GROUP = {
-#     MYSQL_BACKUP:{MYSQL_BACKUP_LOGIC:}
-# }
+RADIO_MYSQL_BACKUP,RADIO_MYSQL_RESTORE,RADIO_MYSQL_BACKUP_LOGIC,RADIO_MYSQL_BACKUP_FULL,RADIO_MYSQL_BACKUP_INCREMENT = range(5)
+RADIO_GROUP = {
+
+}
 
 
 
@@ -173,7 +174,7 @@ class Ui_MainWindow(object):
         self.passwordLineEdit.setText(config.getMysqlPassword())
         self._checkButtonEnable()
 
-    def _createRadioButton(self,title,member,buttongroup=None,id=-1):
+    def _createRadioButton(self,title,member,buttongroup=None):
         radioButton = QtWidgets.QRadioButton()
         radioButton.setObjectName(title)
         radioButton.setText(self._translate("MainWindow", title))
@@ -183,7 +184,8 @@ class Ui_MainWindow(object):
             buttongroup.addButton(radioButton)
         return radioButton
 
-
+    def _dealRadioToggled(self,id,checked):
+        pass
 
     def _createButton(self, text, member,enabled=True):
         button = QPushButton(text)
@@ -287,28 +289,43 @@ class Ui_MainWindow(object):
         self.backupMysqlQWidget = QtWidgets.QWidget()
         self.backupMysqlQWidget.setObjectName("backupMysqlQWidget")
         self.backupMysqlGridLayout = QtWidgets.QGridLayout()
-        self._myqslBackupLogicRadio = self._createRadioButton('logic',None)
-        self._myqslBackupFullRadio = self._createRadioButton('full',None)
-        self._myqslBackupIncrementRadio = self._createRadioButton('increment',None)
+
+        buttonGroup = QButtonGroup(self.backupMysqlQWidget)
+        self._mysqlBackupRadio = self._createRadioButton('backup',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP,checked),buttonGroup)
+        self._mysqlRestoreRadio = self._createRadioButton('restore',lambda checked:self._dealRadioToggled(RADIO_MYSQL_RESTORE,checked),buttonGroup)
+
+        buttonGroup = QButtonGroup(self.backupMysqlQWidget)
+        self._myqslBackupLogicRadio = self._createRadioButton('logic',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_LOGIC,checked),buttonGroup)
+        self._myqslBackupFullRadio = self._createRadioButton('full',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_FULL,checked),buttonGroup)
+        self._myqslBackupIncrementRadio = self._createRadioButton('increment',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_INCREMENT,checked),buttonGroup)
+
         self._mysqlBackupCompressCheckBox = self._addCheckBox('compress',True)
         self._mysqlBackupToLocalCheckBox = self._addCheckBox('save local',True)
         self._mysqlSSHUserLabel = QLabel("ssh user:")
         self._mysqlSSHPasswordLabel = QLabel("ssh password:")
         self._mysqlSSHPortLabel = QLabel("ssh port:")
-        self._mysqlBackupRemotePathLabel = QLabel("remote backup path")
-        self._mysqlBackupLocalPathLabel = QLabel("local save path")
         self._mysqlSSHUserEditline = self._addEditLine("mysqlsshuser")
         self._mysqlSSHPasswordEditline = self._addEditLine("mysqlsshpassword",QtWidgets.QLineEdit.Password)
         self._mysqlSSHPortEditline = self._addEditLine("mysqlsshport")
-        self._mysqlBackupLocalPathEditLine = self._addEditLine('mysqlBackupLocalPath')
-        self._mysqlbackupRemotePathEditLine = self._addEditLine('mysqlBackupRemotePath')
 
+        self._mysqlBackupPathLabel = QLabel("backup path")
+        self._mysqlbackupPathEditLine = self._addEditLine('mysqlBackupPath')
+        self._mysqlBackupPathButton = self._createButton('browse',None,enabled=False)
+
+        self._mysqlBackupLocalPathLabel = QLabel("local save path")
+        self._mysqlBackupLocalPathEditLine = self._addEditLine('mysqlBackupLocalPath')
         self._mysqlBackupLocalPathButton = self._createButton('browse',None)
-        self._mysqlBackupRemotePathButton = self._createButton('browse',None)
+
+        self._mysqlBackupIncrementalBaseDirLabel = QLabel("incremental base path")
+        self._mysqlBackupIncrementalBaseDirEditLine = self._addEditLine('mysqlBackupIncrementalBaseDir')
+        self._mysqlBackupIncrementalBaseDirButton = self._createButton('browse',None,enabled=False)
+
 
 
         self.launchBackupMysqlButton = self._createQCommandLinkButton('backup',self._launchBackupMysql,True)
-        self.backupMysqlGridLayout.addWidget(self._myqslBackupLogicRadio,0,0)
+
+
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupLogicRadio,0,0,1,3)
         self.backupMysqlGridLayout.addWidget(self._myqslBackupFullRadio,0,1)
         self.backupMysqlGridLayout.addWidget(self._myqslBackupIncrementRadio,0,2)
         self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserLabel,1,0)
@@ -319,13 +336,18 @@ class Ui_MainWindow(object):
         self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordEditline,3,1,1,2)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupCompressCheckBox,4,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupToLocalCheckBox,4,1)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRemotePathLabel,5,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlbackupRemotePathEditLine,5,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRemotePathButton,5,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathLabel,5,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlbackupPathEditLine,5,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathButton,5,4)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathLabel,6,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathEditLine,6,1,1,3)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathButton,6,4)
-        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,7,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirLabel,7,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirEditLine,7,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirButton,7,4)
+        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,8,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRadio,9,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreRadio,9,1)
         self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
 
     def _setupRestoreMysqlWidget(self):

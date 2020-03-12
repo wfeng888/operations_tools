@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import threading
@@ -66,13 +67,23 @@ def execute_backupground():
             print(to_text(data))
             data = stdout.readline()
 
+class A(object):
+
+    def __init__(self,pa,pb):
+        self.a = pa
+        self.b = pb
+
 
 if '__main__' == __name__:
-    bc = BackupConfig()
-    setattr(bc,'databases','db1,db2,db3')
-    setattr(bc,'compress','trUE')
-    print(bc.databases)
-    print(bc.compress)
+    # oa = A(1,2)
+    # ob = copy.deepcopy(oa)
+    # print('id:{},{}'.format(id(oa),id(ob)))
+    # print('value:%d,%d' % (oa.a,ob.a))
+    # ob.a = 3
+    # print('value:%d,%d' % (oa.a,ob.a))
+
+    for i in dir(BackupConfig):
+        print(i)
     # bc.databases = 'db1;db2;db3'
     # print(bc.databases)
     # test_paramiko()

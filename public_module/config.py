@@ -7,7 +7,8 @@ from deploy.fields import FieldMeta
 import log
 from public_module.global_vars import  ThreadSafeHouse
 
-MYSQL_CATEGORY = 'mysql'
+MYSQL_CATEGORY = 'mysql_pub'
+MYSQL_BACKUP_CATEGORY = 'mysql_backup'
 MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG = 'sqldirectory'
 MYSQL_GENERAL_CONFIG = ('host','port','user','password','database')
 MYSQL_CREATEDB_CONFIG = list()
@@ -30,12 +31,20 @@ class BackupConfig(MysqlConfig):
     __ssh_port = {'options':(),'default':(22)}
     ssh_user:str
     ssh_password:str
+    is_remote_host:bool
+
     backup_base_dir:str
-    save_to_local:bool
+    incremental_basedir:str
     local_path:str
+    backup_sql_file:str
+
+    is_save_to_local:bool
+
+    operate:str
+    __operate = {'options':('backup','restore'),'default':()}
     backup_mode:str
     __backup_mode = {'options':('logic','full','increment'),'default':('full')}
-    full_backup_base:str
+
     databases:list
     compress:bool
     compress_threadnum:int = 4
@@ -45,11 +54,9 @@ class BackupConfig(MysqlConfig):
     __backup_software = {'options':('xtrabackup','restore'),'default':('xtrabackup')}
     backup_software_path:str
     os_platform:str = sys.platform
-    operate:str
-    __operate = {'options':('backup','restore'),'default':()}
-    remote_host:bool
-    backup_dir:str
-    base_fullbackup_dir:str
+
+
+
 
     def check_enum(self,name):
         if hasattr(self,name):
@@ -59,25 +66,28 @@ class BackupConfig(MysqlConfig):
         return False
 
     def check_backupconfig(self):
-        if self.remote_host == None or self.backup_base_dir == None or self.backup_mode == None or self.port == None or self.defaults_file == None or self.backup_software == None \
-                or self.operate == None:
+
+        if not (self.check_enum('backup_mode') and self.check_enum('operate') ):
             return False
-        if not (self.check_enum('backup_mode') and self.check_enum('operate') and (self.backup_mode in ('logic') or self.backup_mode not in 'logic'
-                                                                                   and self.check_enum('backup_software') and self.backup_software_path)):
-            return False
+        if self.backup_mode in ('logic'):
+            if not self.backup_sql_file:
+                return False
         if self.backup_mode not in ('logic') and not self.defaults_file :
             return False
         if not (self.socket_file or self.port):
             return False
 
-        if self.remote_host:
-            if
+        if self.remote_host and not( self.ssh_password and self.ssh_port and self.ssh_user):
+            return False
 
         return True
 
 
 class XtrabackupConfig(BackupConfig):
+    pass
 
+class MysqlBackupConfig(BackupConfig):
+    pass
 
 def init_mysqlconfig(**kw):
     global CONFIG
@@ -147,6 +157,25 @@ def getConfig():
 
 CONFIG = {}
 init_mysqlconfig()
+BACKUP_CONFIG = BackupConfig()
+
+
+
+def updateBackConfig():
+    global CONFIG
+    backconfig_keys = [k for k in dir(BackupConfig) if not k.startswith('_') and not callable(getattr(BACKUP_CONFIG,k)) ]
+    if CONFIG.get(MYSQL_CATEGORY,'None'):
+        for k in CONFIG[MYSQL_CATEGORY].keys():
+            if k in backconfig_keys:
+                setattr(BACKUP_CONFIG,k,CONFIG[MYSQL_CATEGORY][k])
+    if not BACKUP_CONFIG.check_backupconfig():
+        return False
+    if CONFIG.get(MYSQL_BACKUP_CATEGORY,None):
+        CONFIG[MYSQL_BACKUP_CATEGORY] = {}
+    for k in dir(BackupConfig) :
+        if not k.startswith('_') and not callable(getattr(BACKUP_CONFIG,k)):
+            CONFIG[MYSQL_BACKUP_CATEGORY][k] = getattr(BACKUP_CONFIG,k)
+    return True
 
 
 threadSafeConfig = ThreadSafeHouse(CONFIG)

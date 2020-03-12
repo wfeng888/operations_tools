@@ -30,6 +30,8 @@ class FieldMeta(type):
         names = []
         dicts['_attributes'] = {}
         dicts['_properties'] = {}
+        if not dicts.get('__annotations__',None):
+            dicts['__annotations__'] = {}
         for name in dicts['__annotations__'].keys():
             if not name.startswith('__'):
                 names.append(name)
