@@ -2,10 +2,13 @@ from functools import  partial
 
 
 def getx(cname,self):
-    return self._attributes[cname]
+    return self._attributes.get(cname,None)
 
 def setx(cname,self, value):
     cls = self.__class__.__annotations__[cname]
+    if value == None:
+        self._attributes[cname] = None
+        return
     if isinstance(cls,int) or cls == int:
         self._attributes[cname] = int(value)
     elif isinstance(cls,(list,tuple)) or cls in (list,tuple):
@@ -33,7 +36,7 @@ class FieldMeta(type):
         if not dicts.get('__annotations__',None):
             dicts['__annotations__'] = {}
         for name in dicts['__annotations__'].keys():
-            if not name.startswith('__'):
+            if not name.startswith('__') and not name.startswith('_CONS'):
                 names.append(name)
         for name in names:
             getter = partial(getx,'_'+name)

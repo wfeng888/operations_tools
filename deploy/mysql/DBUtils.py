@@ -61,9 +61,10 @@ def getVariable(conn,variablename,globalv=False):
     stat = 'select @@{}'.format(variablename)
     try:
         result = query(conn,stat)
-        return result[0]
+        return result[0][0]
     except Error as e:
         log.error(formatErrorMsg(e))
         return None
     finally:
-        safe_close(conn)
+        # safe_close(conn)
+        pass

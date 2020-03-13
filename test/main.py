@@ -2,6 +2,7 @@ import copy
 import os
 import sys
 import threading
+from configparser import ConfigParser
 from pathlib import Path
 
 from deploy.mysql.backup import execute_cmd
@@ -74,6 +75,15 @@ class A(object):
         self.b = pb
 
 
+
+def isFileExists():
+    with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+        sc = pk.open_sftp()
+        msg = sc.stat('/database/my3578/my.cnf')
+        print(msg)
+        sc = pk.open_sftp()
+        msg1 = sc.stat('/database/my3578/my.cnf.bk')
+        print(msg1)
 if '__main__' == __name__:
     # oa = A(1,2)
     # ob = copy.deepcopy(oa)
@@ -82,8 +92,8 @@ if '__main__' == __name__:
     # ob.a = 3
     # print('value:%d,%d' % (oa.a,ob.a))
 
-    for i in dir(BackupConfig):
-        print(i)
+    # for i in dir(BackupConfig):
+    #     print(i)
     # bc.databases = 'db1;db2;db3'
     # print(bc.databases)
     # test_paramiko()
@@ -97,4 +107,12 @@ if '__main__' == __name__:
     # sort(v)
     # for i in  range(3,4):
     #     print(i)
-    print(sys.platform)
+    # print(sys.platform)
+    s = '/abc/def'
+    print(s[:-1])
+    print(s.rpartition('/')[0])
+    # isFileExists()
+
+    outcnf = ConfigParser(allow_no_value=True)
+    outcnf['a']='A'
+    outcnf['b']='B'

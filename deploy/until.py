@@ -119,3 +119,4 @@ def list_sqlfile_new(filepath):
         else:
             if os.path.splitext(filepath)[1].upper() == '.SQL':
                 return filepath,1
+

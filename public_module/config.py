@@ -22,11 +22,29 @@ class ConfigBase(object,metaclass=FieldMeta):
     user:str
     password:str
 
+    def resetFields(self):
+        for k in dir(self.__class__):
+            if  not k.startswith('_') and not callable(getattr(self,k)) :
+                setattr(self,k,None)
+
+
 class MysqlConfig(ConfigBase):
     database:str
 
 
 class BackupConfig(MysqlConfig):
+
+    _CONS_OPERATE_BACKUP='backup'
+    _CONS_OPERATE_RESTORE='restore'
+    _CONS_BACKUP_MODE_LOGIC = 'logic'
+    _CONS_BACKUP_MODE_FULL = 'full'
+    _CONS_BACKUP_MODE_INCREMENT = 'increment'
+    _CONS_BACKUP_SOFTWARE_XTRABACKUP = 'xtrabackup'
+    _CONS_BACKUP_SOFTWARE_MYSQLBACKUP = 'mysqlbackup'
+    _CONS_BACKUP_SOFTWARE_MYSQL = 'mysql'
+    _CONS_BACKUP_SOFTWARE_MYSQLDUMP = 'mysql_dump'
+
+    ssh_host:str
     ssh_port:int
     __ssh_port = {'options':(),'default':(22)}
     ssh_user:str
@@ -34,9 +52,11 @@ class BackupConfig(MysqlConfig):
     is_remote_host:bool
 
     backup_base_dir:str
+    backup_dir:str
     incremental_basedir:str
     local_path:str
     backup_sql_file:str
+    restore_target_dir:str
 
     is_save_to_local:bool
 
@@ -51,7 +71,7 @@ class BackupConfig(MysqlConfig):
     defaults_file:str
     socket_file:str
     backup_software:str
-    __backup_software = {'options':('xtrabackup','restore'),'default':('xtrabackup')}
+    __backup_software = {'options':('xtrabackup','restore','mysql_dump','mysql'),'default':('xtrabackup')}
     backup_software_path:str
     os_platform:str = sys.platform
 
@@ -66,7 +86,7 @@ class BackupConfig(MysqlConfig):
         return False
 
     def check_backupconfig(self):
-
+        return True
         if not (self.check_enum('backup_mode') and self.check_enum('operate') ):
             return False
         if self.backup_mode in ('logic'):
@@ -80,11 +100,19 @@ class BackupConfig(MysqlConfig):
         if self.remote_host and not( self.ssh_password and self.ssh_port and self.ssh_user):
             return False
 
-        return True
-
-
 class XtrabackupConfig(BackupConfig):
-    pass
+    backup:str = 'backup'
+    prepare:str = 'prepare'
+    apply_log_only:str = 'apply-log-only'
+    login_path:str
+    defaults_file:str
+    defaults_extra_file:str
+    defaults-group-suffix:str
+    target-dir:str
+    stats:str = 'stats'
+    export:str = 'export'
+    print-param:str = 'print-param'
+
 
 class MysqlBackupConfig(BackupConfig):
     pass
@@ -170,8 +198,7 @@ def updateBackConfig():
                 setattr(BACKUP_CONFIG,k,CONFIG[MYSQL_CATEGORY][k])
     if not BACKUP_CONFIG.check_backupconfig():
         return False
-    if CONFIG.get(MYSQL_BACKUP_CATEGORY,None):
-        CONFIG[MYSQL_BACKUP_CATEGORY] = {}
+    CONFIG[MYSQL_BACKUP_CATEGORY] = {}
     for k in dir(BackupConfig) :
         if not k.startswith('_') and not callable(getattr(BACKUP_CONFIG,k)):
             CONFIG[MYSQL_BACKUP_CATEGORY][k] = getattr(BACKUP_CONFIG,k)
