@@ -12,10 +12,16 @@ def setx(cname,self, value):
     if isinstance(cls,int) or cls == int:
         self._attributes[cname] = int(value)
     elif isinstance(cls,(list,tuple)) or cls in (list,tuple):
-        self._attributes[cname] = value.split(',')
+        if not isinstance(value,(list,tuple)):
+            self._attributes[cname] = value.split(',')
+        else:
+            self._attributes[cname] = value
     elif isinstance(cls,dict) or cls == dict:
-        tmplist = value.split(',')
-        self._attributes[cname][tmplist.split(':')[0]] = tmplist.split(':')[1]
+        if not isinstance(value,dict):
+            tmplist = value.split(',')
+            self._attributes[cname][tmplist.split(':')[0]] = tmplist.split(':')[1]
+        else:
+            self._attributes[cname] = value
     elif isinstance(cls,bool) or cls == bool:
         self._attributes[cname] = True if value and str(value).upper() == 'TRUE' else False
     else:

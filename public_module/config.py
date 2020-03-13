@@ -101,18 +101,44 @@ class BackupConfig(MysqlConfig):
             return False
 
 class XtrabackupConfig(BackupConfig):
-    backup:str = 'backup'
-    prepare:str = 'prepare'
-    apply_log_only:str = 'apply-log-only'
-    login_path:str
-    defaults_file:str
-    defaults_extra_file:str
-    defaults-group-suffix:str
-    target-dir:str
+    backup:str = '--backup'
+    prepare:str = '--prepare'
+    apply_log_only:str = '--apply-log-only'
+    login_path:list = '--login-path,'
+    defaults_file:list = '--defaults-file,'
+    defaults_extra_file:list = '--defaults-extra-file,'
+    defaults_group_suffix:list = '--defaults-group-suffix,'
+    target_dir:list = '--target-dir,'
     stats:str = 'stats'
     export:str = 'export'
-    print-param:str = 'print-param'
-
+    print_param:str = 'print-param'
+    use_memory:list = '--use-memory,'
+    throttle:list = '--throttle,'
+    log:list = '--log,'
+    log_copy_interval:list = '--log-copy-interval,'
+    extra-lsndir:list = '--extra-lsndir,'
+    --incremental-lsn:list = '--incremental-lsn'
+    --incremental-basedir:list = '--incremental-basedir,'
+    --incremental-dir:list = '--incremental-dir,'
+    --to-archived-lsn:list = '--to-archived-lsn,'
+    --tables:list = '--tables,'
+    --tables-file:list = '--tables-file,'
+    --databases:list = '--databases,'
+    --databases-file:list = '--databases-file,'
+    --tables-exclude:list = '--tables-exclude,'
+    --databases-exclude:list = '--databases-exclude,'
+    --stream:list = '--stream,'
+    --compress:list = '--compress,quicklz'
+    --compress-threads:list = '--compress-threads,'
+    --compress-chunk-size:list = '--compress-chunk-size,'
+    --encrypt:list = '--encrypt,'
+    --copy-back:str = '--copy-back'
+    --move-back:str = '--move-back'
+    --slave-info:str = '--slave-info'
+    --rsync:str = '--rsync'
+    --decompress:str = '--decompress'
+    --parallel:list = '--parallel,'
+    --log-bin:list = '--log-bin,'
 
 class MysqlBackupConfig(BackupConfig):
     pass
