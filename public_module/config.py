@@ -27,24 +27,24 @@ class ConfigBase(object,metaclass=FieldMeta):
             if  not k.startswith('_') and not callable(getattr(self,k)) :
                 setattr(self,k,None)
 
+    def check_enum(self,name):
+        if hasattr(self,name):
+            if hasattr(self,'__'+name):
+                return False if getattr(self,name) not in (getattr(self,'__'+name)).get('options') else True
+            return True
+        return False
 
-class MysqlConfig(ConfigBase):
+class MysqlConfig():
     database:str
 
-
-class BackupConfig(MysqlConfig):
+class BackupConfig(ConfigBase):
 
     _CONS_OPERATE_BACKUP='backup'
     _CONS_OPERATE_RESTORE='restore'
     _CONS_BACKUP_MODE_LOGIC = 'logic'
     _CONS_BACKUP_MODE_FULL = 'full'
     _CONS_BACKUP_MODE_INCREMENT = 'increment'
-    _CONS_BACKUP_SOFTWARE_XTRABACKUP = 'xtrabackup'
-    _CONS_BACKUP_SOFTWARE_MYSQLBACKUP = 'mysqlbackup'
-    _CONS_BACKUP_SOFTWARE_MYSQL = 'mysql'
-    _CONS_BACKUP_SOFTWARE_MYSQLDUMP = 'mysql_dump'
 
-    ssh_host:str
     ssh_port:int
     __ssh_port = {'options':(),'default':(22)}
     ssh_user:str
@@ -55,7 +55,7 @@ class BackupConfig(MysqlConfig):
     backup_dir:str
     incremental_basedir:str
     local_path:str
-    backup_sql_file:str
+
     restore_target_dir:str
 
     is_save_to_local:bool
@@ -65,25 +65,9 @@ class BackupConfig(MysqlConfig):
     backup_mode:str
     __backup_mode = {'options':('logic','full','increment'),'default':('full')}
 
-    databases:list
-    compress:bool
-    compress_threadnum:int = 4
-    defaults_file:str
-    socket_file:str
     backup_software:str
-    __backup_software = {'options':('xtrabackup','restore','mysql_dump','mysql'),'default':('xtrabackup')}
     backup_software_path:str
     os_platform:str = sys.platform
-
-
-
-
-    def check_enum(self,name):
-        if hasattr(self,name):
-            if hasattr(self,'__'+name):
-                return False if getattr(self,name) not in (getattr(self,'__'+name)).get('options') else True
-            return True
-        return False
 
     def check_backupconfig(self):
         return True
@@ -100,48 +84,19 @@ class BackupConfig(MysqlConfig):
         if self.remote_host and not( self.ssh_password and self.ssh_port and self.ssh_user):
             return False
 
-class XtrabackupConfig(BackupConfig):
-    backup:str = '--backup'
-    prepare:str = '--prepare'
-    apply_log_only:str = '--apply-log-only'
-    login_path:list = '--login-path,'
-    defaults_file:list = '--defaults-file,'
-    defaults_extra_file:list = '--defaults-extra-file,'
-    defaults_group_suffix:list = '--defaults-group-suffix,'
-    target_dir:list = '--target-dir,'
-    stats:str = 'stats'
-    export:str = 'export'
-    print_param:str = 'print-param'
-    use_memory:list = '--use-memory,'
-    throttle:list = '--throttle,'
-    log:list = '--log,'
-    log_copy_interval:list = '--log-copy-interval,'
-    extra-lsndir:list = '--extra-lsndir,'
-    --incremental-lsn:list = '--incremental-lsn'
-    --incremental-basedir:list = '--incremental-basedir,'
-    --incremental-dir:list = '--incremental-dir,'
-    --to-archived-lsn:list = '--to-archived-lsn,'
-    --tables:list = '--tables,'
-    --tables-file:list = '--tables-file,'
-    --databases:list = '--databases,'
-    --databases-file:list = '--databases-file,'
-    --tables-exclude:list = '--tables-exclude,'
-    --databases-exclude:list = '--databases-exclude,'
-    --stream:list = '--stream,'
-    --compress:list = '--compress,quicklz'
-    --compress-threads:list = '--compress-threads,'
-    --compress-chunk-size:list = '--compress-chunk-size,'
-    --encrypt:list = '--encrypt,'
-    --copy-back:str = '--copy-back'
-    --move-back:str = '--move-back'
-    --slave-info:str = '--slave-info'
-    --rsync:str = '--rsync'
-    --decompress:str = '--decompress'
-    --parallel:list = '--parallel,'
-    --log-bin:list = '--log-bin,'
+class MysqlBackupConfig(MysqlConfig,BackupConfig):
 
-class MysqlBackupConfig(BackupConfig):
-    pass
+    _CONS_BACKUP_SOFTWARE_XTRABACKUP = 'xtrabackup'
+    _CONS_BACKUP_SOFTWARE_MYSQLBACKUP = 'mysqlbackup'
+    _CONS_BACKUP_SOFTWARE_MYSQL = 'mysql'
+    _CONS_BACKUP_SOFTWARE_MYSQLDUMP = 'mysql_dump'
+    __backup_software = {'options':('xtrabackup','mysqlbackup','mysql_dump','mysql'),'default':('xtrabackup')}
+    databases:list
+    compress:bool
+    compress_threadnum:int = 4
+    defaults_file:str
+    socket_file:str
+    backup_sql_file:str
 
 def init_mysqlconfig(**kw):
     global CONFIG
@@ -211,23 +166,22 @@ def getConfig():
 
 CONFIG = {}
 init_mysqlconfig()
-BACKUP_CONFIG = BackupConfig()
 
 
 
-def updateBackConfig():
+def updateBackConfig(backupconfig:BackupConfig):
     global CONFIG
-    backconfig_keys = [k for k in dir(BackupConfig) if not k.startswith('_') and not callable(getattr(BACKUP_CONFIG,k)) ]
+    backconfig_keys = [k for k in dir(BackupConfig) if not k.startswith('_') and not callable(getattr(backupconfig,k)) ]
     if CONFIG.get(MYSQL_CATEGORY,'None'):
         for k in CONFIG[MYSQL_CATEGORY].keys():
             if k in backconfig_keys:
-                setattr(BACKUP_CONFIG,k,CONFIG[MYSQL_CATEGORY][k])
-    if not BACKUP_CONFIG.check_backupconfig():
+                setattr(backupconfig,k,CONFIG[MYSQL_CATEGORY][k])
+    if not backupconfig.check_backupconfig():
         return False
     CONFIG[MYSQL_BACKUP_CATEGORY] = {}
-    for k in dir(BackupConfig) :
-        if not k.startswith('_') and not callable(getattr(BACKUP_CONFIG,k)):
-            CONFIG[MYSQL_BACKUP_CATEGORY][k] = getattr(BACKUP_CONFIG,k)
+    for k in dir(BackupConfig):
+        if not k.startswith('_') and not callable(getattr(backupconfig,k)):
+            CONFIG[MYSQL_BACKUP_CATEGORY][k] = getattr(backupconfig,k)
     return True
 
 

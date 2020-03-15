@@ -1,6 +1,4 @@
-import traceback
 
-from mysql.connector import Error
 
 import log
 from deploy.mysql.DBUtils import exec_stts, safe_close
@@ -17,7 +15,7 @@ def exec_warp(sqlfiles,total=0,curnum=0):
         _config = getConfig()
         ds = getDS()
         conn = ds.get_conn()
-        dbexists =  DBUtils.isDBExists(conn,_config[MYSQL_CATEGORY]['database'])
+        dbexists = DBUtils.isDBExists(conn,_config[MYSQL_CATEGORY]['database'])
         if not dbexists:
             with conn.cursor() as cursor:
                 cursor.execute(DBUtils.SQL_CREATE_DATABASE.format(_config[MYSQL_CATEGORY]['database']))

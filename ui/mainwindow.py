@@ -6,14 +6,14 @@ from PyQt5.QtCore import QDir
 from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy, \
     QButtonGroup
 
-from deploy.mysql.backup import backup, restore, backup_new
+from deploy.mysql.backup import  backup_restore
 from deploy.mysql.mysql_exec import execute_createDB
 from deploy.mysql import DBUtils
 from public_module import config
 
 import log
 from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, \
-    checkGeneralConfigForMysql, BACKUP_CONFIG, BackupConfig, updateBackConfig
+    checkGeneralConfigForMysql, MysqlBackupConfig, updateBackConfig
 
 from ui.myThread import MyThread
 
@@ -24,13 +24,13 @@ TABPAGE,LOG,COMMAND,PROGRESS = range(4)
 RADIO_MYSQL_BACKUP,RADIO_MYSQL_RESTORE,RADIO_MYSQL_BACKUP_LOGIC,RADIO_MYSQL_BACKUP_FULL,RADIO_MYSQL_BACKUP_INCREMENT = range(5)
 CHECKBOX_MYSQL_BACKUPCOMPRESS,CHECKBOX_MYSQL_SAVE_LOCAL = range(2)
 BACKUP_MODE_MAP = {
-    RADIO_MYSQL_BACKUP_LOGIC:BackupConfig._CONS_BACKUP_MODE_LOGIC,
-    RADIO_MYSQL_BACKUP_FULL:BackupConfig._CONS_BACKUP_MODE_FULL,
-    RADIO_MYSQL_BACKUP_INCREMENT:BackupConfig._CONS_BACKUP_MODE_INCREMENT
+    RADIO_MYSQL_BACKUP_LOGIC:MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC,
+    RADIO_MYSQL_BACKUP_FULL:MysqlBackupConfig._CONS_BACKUP_MODE_FULL,
+    RADIO_MYSQL_BACKUP_INCREMENT:MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT
 }
 BACKUP_OPER_MAP = {
-    RADIO_MYSQL_BACKUP:BackupConfig._CONS_OPERATE_BACKUP,
-    RADIO_MYSQL_RESTORE:BackupConfig._CONS_OPERATE_RESTORE
+    RADIO_MYSQL_BACKUP:MysqlBackupConfig._CONS_OPERATE_BACKUP,
+    RADIO_MYSQL_RESTORE:MysqlBackupConfig._CONS_OPERATE_RESTORE
 }
 
 
@@ -285,49 +285,52 @@ class Ui_MainWindow(object):
         log.debug('begin create database')
         self._launchTask(execute_createDB,MYSQL_CREATE_DB)
 
-    def _launchBackupMysql(self):
-        log.debug('Begin to backup mysql !')
-        # self._launchTask(backup,MYSQL_BACKUP,'backMysql',pargs=(1,))
-        self._launchTask(backup_new,MYSQL_BACKUP,'backMysql')
+
 
     def _mysqlCheckAndSetConfig(self):
-        BACKUP_CONFIG.resetFields()
-        BACKUP_CONFIG.backup_base_dir = self._mysqlbackupPathEditLine.text().strip()
+        config = MysqlBackupConfig()
+        config.resetFields()
+        config.backup_base_dir = self._mysqlbackupPathEditLine.text().strip()
 
-        BACKUP_CONFIG.operate = BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]
-        BACKUP_CONFIG.backup_mode = BACKUP_MODE_MAP[self._mysqlBackupModeButtonGroup.checkedId()]
+        config.operate = BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]
+        config.backup_mode = BACKUP_MODE_MAP[self._mysqlBackupModeButtonGroup.checkedId()]
 
-        if BACKUP_CONFIG.backup_mode == BackupConfig._CONS_BACKUP_MODE_INCREMENT:
-            BACKUP_CONFIG.incremental_basedir = self._mysqlBackupIncrementalBaseDirEditLine.text().strip()
-        BACKUP_CONFIG.backup_software = BackupConfig._CONS_BACKUP_SOFTWARE_XTRABACKUP
-        if BACKUP_CONFIG.backup_mode == BackupConfig._CONS_BACKUP_MODE_LOGIC:
-            if BACKUP_CONFIG.operate == BackupConfig._CONS_OPERATE_RESTORE:
-                BACKUP_CONFIG.backup_software = BackupConfig._CONS_BACKUP_SOFTWARE_MYSQL
+        if config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT:
+            config.incremental_basedir = self._mysqlBackupIncrementalBaseDirEditLine.text().strip()
+        config.backup_software = MysqlBackupConfig._CONS_BACKUP_SOFTWARE_XTRABACKUP
+        if config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC:
+            if config.operate == MysqlBackupConfig._CONS_OPERATE_RESTORE:
+                config.backup_software = MysqlBackupConfig._CONS_BACKUP_SOFTWARE_MYSQL
             else:
-                BACKUP_CONFIG.backup_software = BackupConfig._CONS_BACKUP_SOFTWARE_MYSQLDUMP
+                config.backup_software = MysqlBackupConfig._CONS_BACKUP_SOFTWARE_MYSQLDUMP
 
-        if BACKUP_CONFIG.operate == BackupConfig._CONS_OPERATE_RESTORE:
-            BACKUP_CONFIG.restore_target_dir = self._mysqlRestoreTargetDirEditLine.text().strip()
+        if config.operate == MysqlBackupConfig._CONS_OPERATE_RESTORE:
+            config.restore_target_dir = self._mysqlRestoreTargetDirEditLine.text().strip()
 
-
-
-        BACKUP_CONFIG.ssh_user = self._mysqlSSHUserEditline.text().strip()
-        BACKUP_CONFIG.ssh_port = self._mysqlSSHPortEditline.text().strip()
-        BACKUP_CONFIG.ssh_password = self._mysqlSSHPasswordEditline.text().strip()
+        config.ssh_user = self._mysqlSSHUserEditline.text().strip()
+        config.ssh_port = self._mysqlSSHPortEditline.text().strip()
+        config.ssh_password = self._mysqlSSHPasswordEditline.text().strip()
         if self._mysqlBackupCompressCheckBox.isChecked():
-            BACKUP_CONFIG.compress = True
+            config.compress = True
         if self._mysqlBackupToLocalCheckBox.isChecked():
-            BACKUP_CONFIG.is_save_to_local = True
-            BACKUP_CONFIG.local_path = self._mysqlBackupLocalPathEditLine.text().strip()
+            config.is_save_to_local = True
+            config.local_path = self._mysqlBackupLocalPathEditLine.text().strip()
         log.debug('updateBackConfig')
         if not updateBackConfig():
             log.error('updateBackConfig failed , stop {}'.format(BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]))
             return
-        self._launchBackupMysql()
+        if config.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP:
+            self._launchBackupMysql(config)
+        else:
+            self._launchRestoreMysql(config)
 
-    def _launchRestoreMysql(self):
+    def _launchBackupMysql(self,config:MysqlBackupConfig):
+        log.debug('Begin to backup mysql !')
+        self._launchTask(backup_restore,MYSQL_BACKUP,'backMysql',pargs=(config,))
+
+    def _launchRestoreMysql(self,config:MysqlBackupConfig):
         log.debug('Begin to restore mysql!')
-        self._launchTask(restore,MYSQL_RESTORE,'restoreMysql',pargs=(1,))
+        self._launchTask(backup_restore,MYSQL_RESTORE,'restoreMysql',pargs=(config,))
 
     def _launchCheckMysqlAlive(self):
         log.debug('Begin to check mysql !')
@@ -428,7 +431,7 @@ class Ui_MainWindow(object):
         self.restoreMysqlQWidget = QtWidgets.QWidget()
         self.restoreMysqlQWidget.setObjectName("restoreMysqlQWidget")
         self.restoreMysqlGridLayout = QtWidgets.QGridLayout()
-        self.launchRestoreMysqlButton = self._createQCommandLinkButton('restore',self._launchRestoreMysql,True)
+        self.launchRestoreMysqlButton = self._createQCommandLinkButton('restore',self._mysqlCheckAndSetConfig,True)
         self.restoreMysqlGridLayout.addWidget(self.launchRestoreMysqlButton,1,1)
         self.restoreMysqlQWidget.setLayout(self.restoreMysqlGridLayout)
 

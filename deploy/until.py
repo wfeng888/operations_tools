@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 import re
 from re import RegexFlag
@@ -120,3 +121,10 @@ def list_sqlfile_new(filepath):
             if os.path.splitext(filepath)[1].upper() == '.SQL':
                 return filepath,1
 
+
+
+def safe_doing(func,*args):
+    try:
+        func(*args)
+    except BaseException as e:
+        print(traceback.format_exc())

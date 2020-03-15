@@ -55,6 +55,14 @@ _COMPOSED_ERROR_HANDLERS = frozenset((None, 'surrogate_or_replace',
                                       'surrogate_then_replace'))
 
 
+class  ContextManager(object):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return self.close()
+
+
 def to_bytes(obj, encoding='utf-8', errors=None, nonstring='simplerepr'):
     """Make sure that a string is a byte string
 

@@ -8,7 +8,7 @@ SQL_CREATE_DATABASE = r'create database {} if not exists'
 
 def formatErrorMsg(e):
     try:
-        return 'mysql connect error.  errno:{},msg:{},args:{}'.format(str(e.errno),e.msg,e.args)
+        return 'errno:{},msg:{},args:{}'.format(str(e.errno),e.msg,e.args)
     except BaseException:
         return traceback.format_exc()
 
@@ -23,20 +23,17 @@ def safe_close(resource,destroy=False):
         log.error(traceback.format_exc())
 
 def exec_stts(conn,statements):
-    try:
-        if not isinstance(statements,(list,tuple)):
-            statements = (statements,)
-        with conn.cursor() as cursor:
-            for stt in statements:
-                try:
-                    log.debug('exec statement:{}'.format(stt))
-                    cursor.execute(stt)
-                except Error as e:
-                    log.error('error_num:%d,error_msg:%s .when execute statement:%s' %(e.errno,e.msg,stt))
-                except BaseException as e:
-                    log.error(traceback.format_exc())
-    finally:
-        safe_close(conn)
+    if not isinstance(statements,(list,tuple)):
+        statements = (statements,)
+    with conn.cursor() as cursor:
+        for stt in statements:
+            try:
+                log.debug('exec statement:{}'.format(stt))
+                cursor.execute(stt)
+            except Error as e:
+                log.error('error_num:%d,error_msg:%s .when execute statement:%s' %(e.errno,e.msg,stt))
+            except BaseException as e:
+                log.error(traceback.format_exc())
 
 def query(conn,stat,params=()):
     try:
@@ -54,17 +51,22 @@ def isDBExists(conn,dbname):
             conn.database = dbname
             return True
     except Error as e:
-        log.error(e.errno+':'+e.msg)
+        log.error(formatErrorMsg(e))
     return False
 
-def getVariable(conn,variablename,globalv=False):
+def getVariable(variablename,conn=None,ds=None,globalv=False):
     stat = 'select @@{}'.format(variablename)
     try:
-        result = query(conn,stat)
-        return result[0][0]
+        if not ( conn or ds ):
+            log.error('both conn and ds cann\'t be None at the same time.')
+            return None
+        if not conn:
+            conn = ds.get_conn()
+        return query(conn,stat)[0][0]
     except Error as e:
         log.error(formatErrorMsg(e))
         return None
     finally:
-        # safe_close(conn)
+        if ds:
+            safe_close(conn)
         pass

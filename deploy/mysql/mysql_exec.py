@@ -3,7 +3,7 @@ from public_module.config import getConfig, MYSQL_CATEGORY, MYSQL_CREATEDB_SQL_D
 from deploy.until import list_sqlfile_new
 from deploy.mysql import SimpleDeploy
 from deploy.mysql.DataSource import getDS
-from deploy.mysql.DBUtils import formatErrorMsg, isDBExists
+from deploy.mysql.DBUtils import formatErrorMsg, isDBExists, safe_close
 
 SIMPLE_DEPLOY,PARALLEL_DEPLOY = range(2)
 
@@ -23,7 +23,10 @@ def isInstanceActive():
     _config = getConfig()
     log.info('check mysql service for {}'.format([k+'='+_config[MYSQL_CATEGORY][k] for k in MYSQL_GENERAL_CONFIG if k != 'password']))
     try:
-        ds = getDS
-        return isDBExists(ds,'mysql')
+        ds = getDS()
+        conn = ds.get_conn()
+        return isDBExists(conn,'mysql')
     except BaseException as e:
         log.error(formatErrorMsg(e))
+    finally:
+        safe_close(conn)

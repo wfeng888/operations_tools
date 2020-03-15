@@ -1,16 +1,15 @@
+import traceback
+from abc import ABCMeta, abstractmethod
 
-_DEFAULT_BUFFER_SIZE = 4096
+import log
+from public_module import ContextManager
+from public_module.utils import formatDateTime
 
 
+class ConnectionBase(ContextManager,metaclass=ABCMeta):
 
-class  ContextManager(object):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        return self.close()
-
-class ConnectionBase(ContextManager):
+    SHELL_SUCCESS=0
+    DEFAULT_BUFFER_SIZE=4096
 
     def __init__(self,host,user,password,port=22):
         self._host = host
@@ -18,4 +17,62 @@ class ConnectionBase(ContextManager):
         self._password = password
         self._port = port
 
+
+    @abstractmethod
+    def fileExists(self):
+        pass
+
+    @abstractmethod
+    def open_sftp(self):
+        pass
+
+
+    def mkdir(self,path):
+        try:
+            if self.fileExists(path):
+                self.rename(path)
+            sc = self.open_sftp()
+            sc.mkdir(path)
+            return True
+        except IOError as e:
+            pass
+        return False
+
+    def rename(self,oldname,newname=None):
+        if not newname:
+            newname = oldname+formatDateTime()
+        try:
+            sc = self.open_sftp()
+            sc.rename(oldname,newname)
+            return True
+        except IOError as e:
+            pass
+        return False
+
+
+    def execute_cmd(self,cmd,consumeoutput=True,logtofile=None):
+        pass
+
+    @abstractmethod
+    def execute_backupground(self,cmd,consumeoutput=True,logtofile=None):
+        pass
+
+    def transferFileToRemote(self,localpath,remotepath,compress=True):
+        try:
+            self.open_sftp().put(localpath,remotepath)
+            return True
+        except IOError as e:
+            log.error('transfer local file {} to remote {} failed.'.format(localpath,remotepath))
+            log.error(traceback.format_exc())
+            return False
+
+
+    def transferFileFromRemote(self,remotepath,localpath,compress=True):
+        try:
+            self.open_sftp().get(remotepath,localpath)
+            return True
+        except IOError as e:
+            log.error('transfer local file {} to remote {} failed.'.format(localpath,remotepath))
+            log.error(traceback.format_exc())
+            return False
 
