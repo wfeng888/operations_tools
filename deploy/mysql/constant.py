@@ -11,7 +11,7 @@ class MysqlVarAttribute(object):
 
 MYSQL57_CNF_VAR_PREFERENCE = {
     'client':('port',),
-    'mysql':('default-character-set',),
+    'mysql':(['default-character-set','character-set-server'],),
     'mysqld':('port','basedir','plugin-dir','datadir','pid_file','socket','lc-messages-dir','character-set-server',
               'server-id','default-storage-engine','innodb_file_format','innodb_file_format_max','innodb_file_per_table',
               'innodb_log_buffer_size','innodb_buffer_pool_size','innodb_log_files_in_group','innodb_thread_concurrency',

@@ -316,7 +316,7 @@ class Ui_MainWindow(object):
             config.is_save_to_local = True
             config.local_path = self._mysqlBackupLocalPathEditLine.text().strip()
         log.debug('updateBackConfig')
-        if not updateBackConfig():
+        if not updateBackConfig(config):
             log.error('updateBackConfig failed , stop {}'.format(BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]))
             return
         if config.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP:
@@ -346,13 +346,15 @@ class Ui_MainWindow(object):
             checkBox.stateChanged.connect(member)
         return checkBox
 
-    def _addEditLine(self,title,echomode=None):
+    def _addEditLine(self,title,echomode=None,text=None):
         lineEdit = QtWidgets.QLineEdit()
         lineEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
         lineEdit.setClearButtonEnabled(False)
         lineEdit.setObjectName(title)
         if echomode:
             lineEdit.setEchoMode(echomode)
+        if text:
+            lineEdit.setText(text)
         return lineEdit
 
     def _setupBackupMysqlWidget(self):
@@ -375,11 +377,15 @@ class Ui_MainWindow(object):
         self._mysqlSSHPasswordLabel = QLabel("ssh password:")
         self._mysqlSSHPortLabel = QLabel("ssh port:")
         self._mysqlSSHUserEditline = self._addEditLine("mysqlsshuser")
+        self._mysqlSSHUserEditline.setText('mysql')
         self._mysqlSSHPasswordEditline = self._addEditLine("mysqlsshpassword",QtWidgets.QLineEdit.Password)
+        self._mysqlSSHPasswordEditline.setText('8845')
         self._mysqlSSHPortEditline = self._addEditLine("mysqlsshport")
+        self._mysqlSSHPortEditline.setText('22')
 
         self._mysqlBackupPathLabel = QLabel("backup path")
         self._mysqlbackupPathEditLine = self._addEditLine('mysqlBackupPath')
+        self._mysqlbackupPathEditLine.setText('/data/backup/my3578')
         self._mysqlBackupPathButton = self._createButton('browse',None,enabled=False)
 
         self._mysqlBackupLocalPathLabel = QLabel("local save path")

@@ -2,6 +2,7 @@ import traceback
 
 from mysql.connector import Error
 import log
+from public_module.utils import record_log
 
 SQL_CREATE_DATABASE = r'create database {} if not exists'
 
@@ -54,6 +55,7 @@ def isDBExists(conn,dbname):
         log.error(formatErrorMsg(e))
     return False
 
+@record_log
 def getVariable(variablename,conn=None,ds=None,globalv=False):
     stat = 'select @@{}'.format(variablename)
     try:

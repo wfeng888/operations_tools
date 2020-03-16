@@ -58,7 +58,7 @@ class AbstractDataSource(metaclass=ABCMeta):
     @classmethod
     def destroy(cls):
         for k in cls._ds:
-            safe_doing(cls._ds[k].close())
+            safe_doing(cls._ds[k].close)
 
     # @property
     # def _pool(self):
@@ -82,9 +82,8 @@ class AbstractDataSource(metaclass=ABCMeta):
         self._closed = True
         return self._closed
 
-    @abstractmethod
     def is_closed(self):
-        pass
+        return self._closed
 
 class DBUtilPooledDBDataSource(AbstractDataSource):
 

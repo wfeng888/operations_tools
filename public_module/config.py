@@ -34,7 +34,7 @@ class ConfigBase(object,metaclass=FieldMeta):
             return True
         return False
 
-class MysqlConfig():
+class MysqlConfig(metaclass=FieldMeta):
     database:str
 
 class BackupConfig(ConfigBase):
@@ -93,7 +93,7 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     __backup_software = {'options':('xtrabackup','mysqlbackup','mysql_dump','mysql'),'default':('xtrabackup')}
     databases:list
     compress:bool
-    compress_threadnum:int = 4
+    compress_threadnum:int
     defaults_file:str
     socket_file:str
     backup_sql_file:str

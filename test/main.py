@@ -86,6 +86,7 @@
 #         print(msg1)
 import re
 import traceback
+from configparser import ConfigParser
 
 
 class A(object):
@@ -229,8 +230,15 @@ def format_cnf():
             print(i)
 
 
+def testconfigparser():
+    data = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld --defaults-file=/database/my3578/my.cnf --basedir=/usr/local/mysql-5.7.23-el7-x86_64 --datadir=/database/my3578/data --plugin-dir=/usr/local/mysql-5.7.23-el7-x86_64/lib/plugin --user=mysql --federated --log-error=/database/my3578/log/log.err --pid-file=/database/my3578/var/3578.pid --socket=/database/my3578/var/3578.socket --port=3578'
+    r = re.search('(defaults-file)=([\S]+)',data).group(2)
+    print(r)
+
+
 if '__main__' == __name__:
-    format_cnf()
+    testconfigparser()
+    # format_cnf()
     # test_split()
     # re_search()
     # test_null()

@@ -32,9 +32,10 @@ class FieldMeta(type):
     def __new__(cls,clsname,bases,dicts):
         def _addBaseAnnotations(parents):
             for parent in parents:
-                if not parent.__name__ == 'object' and not parent.__name__ == 'type' and hasattr(parent,'__dict__'):
-                    for key in  (set(parent.__dict__['__annotations__'].keys()) - set(dicts['__annotations__'].keys())):
-                        dicts['__annotations__'][key] = parent.__dict__['__annotations__'][key]
+                if not parent.__name__ == 'object' and not parent.__name__ == 'type':
+                    if hasattr(parent,'__dict__') and parent.__dict__.get('__annotations__',None):
+                        for key in  (set(parent.__dict__['__annotations__'].keys()) - set(dicts['__annotations__'].keys())):
+                            dicts['__annotations__'][key] = parent.__dict__['__annotations__'][key]
                     _addBaseAnnotations(parent.__bases__)
         names = []
         dicts['_attributes'] = {}

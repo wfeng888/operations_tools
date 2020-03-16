@@ -8,6 +8,7 @@ from public_module.utils import formatDateTime
 
 class ConnectionBase(ContextManager,metaclass=ABCMeta):
 
+    SHELL_FAILED=-1
     SHELL_SUCCESS=0
     DEFAULT_BUFFER_SIZE=4096
 
@@ -65,6 +66,7 @@ class ConnectionBase(ContextManager,metaclass=ABCMeta):
             log.error('transfer local file {} to remote {} failed.'.format(localpath,remotepath))
             log.error(traceback.format_exc())
             return False
+
 
 
     def transferFileFromRemote(self,remotepath,localpath,compress=True):

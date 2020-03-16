@@ -32,10 +32,10 @@ class ParamikoConnection(ConnectionBase):
             self._transport = self._sclint.get_transport()
             self._transport.set_keepalive(5)
 
-    # def execute_cmd(self,cmd):
-    #     channel,stdin,stdout = self.newChannel()
-    #     channel.exec_command(cmd)
-    #     return channel,stdin,stdout
+    def inner_execute_cmd(self,cmd):
+        channel,stdin,stdout = self.newChannel()
+        channel.exec_command(cmd)
+        return channel,stdin,stdout
 
     def connect(self):
         self._init_client()
@@ -59,7 +59,7 @@ class ParamikoConnection(ConnectionBase):
     def close(self):
         if self._sclint:
             self._sclint.close()
-            del self._sclint
+            # del self._sclint
 
     @initial_only
     def open_sftp(self):
@@ -87,7 +87,7 @@ class ParamikoConnection(ConnectionBase):
     def execute_cmd(self,cmd,consumeoutput=True,logtofile=None):
         try:
             log.debug(cmd)
-            channel,_,_ = self.execute_cmd(to_bytes(cmd))
+            channel,_,_ = self.inner_execute_cmd(to_bytes(cmd))
             result = bytes()
             data = channel.recv(self.DEFAULT_BUFFER_SIZE)
             while(data):

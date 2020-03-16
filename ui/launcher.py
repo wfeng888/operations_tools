@@ -17,7 +17,7 @@ def start(params):
     window.show()
     extstat = app.exec()
     destroyDS()
-    sys.exit(app.exec())
+    sys.exit(extstat)
 
 if __name__ == '__main__':
     start(sys.argv)
