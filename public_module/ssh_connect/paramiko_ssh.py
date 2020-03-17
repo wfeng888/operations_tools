@@ -124,3 +124,10 @@ class ParamikoConnection(ConnectionBase):
         else:
             return None
 
+    def isFile(self,path):
+        msg = self.stat(path)
+        if msg:
+            return stat.S_IFREG(msg.st_mode)
+        else:
+            return None
+

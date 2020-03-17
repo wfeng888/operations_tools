@@ -12,3 +12,6 @@ class MysqlCnfFileNotExistsException(BackupException):
 
 class MysqldNotRunningException(BackupException):
     pass
+
+class MysqlVersionNotMatchException(BackupException):
+    pass

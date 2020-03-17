@@ -97,6 +97,7 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     defaults_file:str
     socket_file:str
     backup_sql_file:str
+    mysql_software_path:str
 
 def init_mysqlconfig(**kw):
     global CONFIG

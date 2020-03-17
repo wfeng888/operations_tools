@@ -9,7 +9,7 @@
 # from deploy.until import list_sqlfile, _sort, valid
 # from public_module import to_bytes, to_text
 # from public_module.config import BackupConfig
-from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
+# from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 #
 #
 # def list_sqlfile_new(filepath):
@@ -44,11 +44,11 @@ from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 #
 
 
-def test_paramiko():
-    with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
-        path = '/database'
-        msg = pk.stat(path)
-        print(msg)
+# def test_paramiko():
+#     with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+#         path = '/database'
+#         msg = pk.stat(path)
+#         print(msg)
 #
 #
 # def execute_backupground():
@@ -87,156 +87,177 @@ import re
 import traceback
 from configparser import ConfigParser
 
+#
+# class A(object):
+#
+#     def __init__(self):
+#         self.a = 1
+#         self.b = 2
+#
+#     def __delete__(self, instance):
+#         print('__delete__')
+#         print(instance)
+#
+#     def __del__(self):
+#         print('__del__')
+#
+# class B(object):
+#     ca = 1
+#     cb = 2
+#
+#     def __init__(self,p):
+#         self._p = p
+#
+#
+#     def instance_func(self,param):
+#         print('{},{},{}'.format('instance_func',param,self._p))
+#
+#     @classmethod
+#     def class_func(cls,param):
+#         print('{},{}'.format('class_func',param))
+#
+# class C(B):
+#     ca = 3
+#
+# def test_static_field():
+#     oa = B()
+#     ob = B()
+#     print(id(oa.ca))
+#     print(id(ob.ca))
+#     print(id(B.ca))
+#     B.ca = 10
+#     print(id(oa.ca))
+#     print(id(ob.ca))
+#     print(id(B.ca))
+#     oa.ca = 20
+#     print(id(oa.ca))
+#     print(id(ob.ca))
+#     print(id(B.ca))
+#     del oa.ca
+#     print(id(oa.ca))
+#     print(id(ob.ca))
+#     print(id(B.ca))
+#
+# def test_father_static():
+#     oc = B('poc')
+#     oc1 = C('poc1')
+#     print(oc.ca)
+#     print(oc1.ca)
+#     print(oc.cb)
+#     print(oc1.cb)
+#
+#
+# def safe_doing(func,*args):
+#     try:
+#         func(*args)
+#     except BaseException as e:
+#         print(traceback.format_exc())
+#
+# def test_safe_doing():
+#     ob = B('ob')
+#     oa = B('oa')
+#     safe_doing(oa.instance_func,*(1,))
+#     safe_doing(ob.instance_func,*(2,))
+#     safe_doing(B.class_func,*(2,))
+#
+# def test_null():
+#     if ' ':
+#         print(1)
+#     if ' '.strip():
+#         print(2)
+#
+# def re_search():
+#     content = r'''no extrabackup in
+#     [root@mha-master my3578]# which extrabackup
+# /usr/bin/which: no extrabackup in (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bigdata/hadoop/hadoop-3.1.2/bin:/bigdata/hbase/hbase-2.2.0/bin:/bigdata/spark/spark-2.4.3-bin-hadoop2.7/bin:/access/test/mysql/bin:/access/test/mysql-5.7.27-linux-x86_64_VCMS_2.0.20190910_R1/mysql/bin:/access/mysql/bin:/access/mysql/bin:/access/mysql/bin:/test/mysql/bin:/root/bin)
+# [root@mha-master my3578]# which xtrabackup
+# /usr/bin/xtrabackup'''
+#     # m = re.search('no extrabackup in','content', re.RegexFlag.IGNORECASE)
+#     index = content.find('which xtrabackup')
+#     print(index)
+#
+# def test_split():
+#     cont = '/access/test/mysql/bin/mysqld --basedir=/access/test/mysql --datadir=/access/test/mysql/data --plugin-dir=/access/test/mysql/lib/plugin --user=mysql --log-error=/access/test/mysql/log/log.err --pid-file=/access/test/mysql/data/mha-master.pid --socket=/access/test/mysql/var/mysql.sock --port=3306'
+#     r = cont.partition(' ')
+#     print(r)
+#     r = r[2].split(maxsplit=90)
+#     print(r)
+#
+#
+# reg = {
+#     'Yes':'Y',
+#     'No':'N',
+#     'Both':'B',
+#     'Session':'S',
+#     'Global':'G',
+#     'Varies':'V'
+# }
+#
+# def convert(p):
+#     if not p:
+#         return 'None'
+#     else:
+#         return reg[p]
+#
+# def format_var():
+#     with open('D:/tmp/my57.var') as f:
+#         with open('D:/tmp/my57.var.format','w+') as w:
+#             i = 0
+#             data = f.readline()
+#             while(data):
+#                 res = data.split('\t')
+#                 if not res[0].startswith('- Variable:'):
+#                     w.write("'"+res[0]+"':("+convert(res[1])+","+convert(res[2])+","+convert(res[3])+","+convert(res[4])+","+convert(res[5])+","+convert(res[6].replace("\n",""))+"),\n")
+#                 if res[2] == 'Yes':
+#                     i += 1
+#                 data = f.readline()
+#             w.flush()
+#             print(i)
+#
+#
+# def format_cnf():
+#     with open('D:/tmp/my.cnf.template') as f:
+#         with open('D:/tmp/my.cnf.template.format','w+') as w:
+#             i = 0
+#             data = f.readline()
+#             while(data):
+#                 if data.strip():
+#                     res = data.partition('=')
+#                     w.write("'"+res[0].strip()+"',")
+#                 data = f.readline()
+#             w.flush()
+#             print(i)
+#
+#
+# def testconfigparser():
+#     data = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld --defaults-file=/database/my3578/my.cnf --basedir=/usr/local/mysql-5.7.23-el7-x86_64 --datadir=/database/my3578/data --plugin-dir=/usr/local/mysql-5.7.23-el7-x86_64/lib/plugin --user=mysql --federated --log-error=/database/my3578/log/log.err --pid-file=/database/my3578/var/3578.pid --socket=/database/my3578/var/3578.socket --port=3578'
+#     r = re.search('(defaults-file)=([\S]+)',data).group(2)
+#     print(r)
 
-class A(object):
+# def test_re():
+#     # mysqld  Ver 8.0.17
+#     data = '/usr/local/mysql/mysql-8.0.17-el7-x86_64/bin/mysqld  Ver 8.0.17 for el7 on x86_64 (MySQL Community Server - GPL)'
+#     r = re.search('mysqld  Ver ([1-9]+\.[0-9]+\.[0-9]+)',data)
+#     s = r.group(1)
+#     print(s)
 
-    def __init__(self):
-        self.a = 1
-        self.b = 2
+def test_parser_set():
+    mConfigParser = ConfigParser();
+    mConfigParser.read('D:/tmp/my.cnf.template','utf-8')
+    print(mConfigParser.get('client','port',fallback=None))
+    mConfigParser.set('client','port','3306')
+    print(mConfigParser.get('client','port',fallback=None))
 
-    def __delete__(self, instance):
-        print('__delete__')
-        print(instance)
-
-    def __del__(self):
-        print('__del__')
-
-class B(object):
-    ca = 1
-    cb = 2
-
-    def __init__(self,p):
-        self._p = p
-
-
-    def instance_func(self,param):
-        print('{},{},{}'.format('instance_func',param,self._p))
-
-    @classmethod
-    def class_func(cls,param):
-        print('{},{}'.format('class_func',param))
-
-class C(B):
-    ca = 3
-
-def test_static_field():
-    oa = B()
-    ob = B()
-    print(id(oa.ca))
-    print(id(ob.ca))
-    print(id(B.ca))
-    B.ca = 10
-    print(id(oa.ca))
-    print(id(ob.ca))
-    print(id(B.ca))
-    oa.ca = 20
-    print(id(oa.ca))
-    print(id(ob.ca))
-    print(id(B.ca))
-    del oa.ca
-    print(id(oa.ca))
-    print(id(ob.ca))
-    print(id(B.ca))
-
-def test_father_static():
-    oc = B('poc')
-    oc1 = C('poc1')
-    print(oc.ca)
-    print(oc1.ca)
-    print(oc.cb)
-    print(oc1.cb)
-
-
-def safe_doing(func,*args):
-    try:
-        func(*args)
-    except BaseException as e:
-        print(traceback.format_exc())
-
-def test_safe_doing():
-    ob = B('ob')
-    oa = B('oa')
-    safe_doing(oa.instance_func,*(1,))
-    safe_doing(ob.instance_func,*(2,))
-    safe_doing(B.class_func,*(2,))
-
-def test_null():
-    if ' ':
-        print(1)
-    if ' '.strip():
-        print(2)
-
-def re_search():
-    content = r'''no extrabackup in
-    [root@mha-master my3578]# which extrabackup
-/usr/bin/which: no extrabackup in (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/bigdata/hadoop/hadoop-3.1.2/bin:/bigdata/hbase/hbase-2.2.0/bin:/bigdata/spark/spark-2.4.3-bin-hadoop2.7/bin:/access/test/mysql/bin:/access/test/mysql-5.7.27-linux-x86_64_VCMS_2.0.20190910_R1/mysql/bin:/access/mysql/bin:/access/mysql/bin:/access/mysql/bin:/test/mysql/bin:/root/bin)
-[root@mha-master my3578]# which xtrabackup
-/usr/bin/xtrabackup'''
-    # m = re.search('no extrabackup in','content', re.RegexFlag.IGNORECASE)
-    index = content.find('which xtrabackup')
-    print(index)
-
-def test_split():
-    cont = '/access/test/mysql/bin/mysqld --basedir=/access/test/mysql --datadir=/access/test/mysql/data --plugin-dir=/access/test/mysql/lib/plugin --user=mysql --log-error=/access/test/mysql/log/log.err --pid-file=/access/test/mysql/data/mha-master.pid --socket=/access/test/mysql/var/mysql.sock --port=3306'
-    r = cont.partition(' ')
-    print(r)
-    r = r[2].split(maxsplit=90)
-    print(r)
-
-
-reg = {
-    'Yes':'Y',
-    'No':'N',
-    'Both':'B',
-    'Session':'S',
-    'Global':'G',
-    'Varies':'V'
-}
-
-def convert(p):
-    if not p:
-        return 'None'
-    else:
-        return reg[p]
-
-def format_var():
-    with open('D:/tmp/my57.var') as f:
-        with open('D:/tmp/my57.var.format','w+') as w:
-            i = 0
-            data = f.readline()
-            while(data):
-                res = data.split('\t')
-                if not res[0].startswith('- Variable:'):
-                    w.write("'"+res[0]+"':("+convert(res[1])+","+convert(res[2])+","+convert(res[3])+","+convert(res[4])+","+convert(res[5])+","+convert(res[6].replace("\n",""))+"),\n")
-                if res[2] == 'Yes':
-                    i += 1
-                data = f.readline()
-            w.flush()
-            print(i)
-
-
-def format_cnf():
-    with open('D:/tmp/my.cnf.template') as f:
-        with open('D:/tmp/my.cnf.template.format','w+') as w:
-            i = 0
-            data = f.readline()
-            while(data):
-                if data.strip():
-                    res = data.partition('=')
-                    w.write("'"+res[0].strip()+"',")
-                data = f.readline()
-            w.flush()
-            print(i)
-
-
-def testconfigparser():
-    data = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld --defaults-file=/database/my3578/my.cnf --basedir=/usr/local/mysql-5.7.23-el7-x86_64 --datadir=/database/my3578/data --plugin-dir=/usr/local/mysql-5.7.23-el7-x86_64/lib/plugin --user=mysql --federated --log-error=/database/my3578/log/log.err --pid-file=/database/my3578/var/3578.pid --socket=/database/my3578/var/3578.socket --port=3578'
-    r = re.search('(defaults-file)=([\S]+)',data).group(2)
-    print(r)
-
+def test_item():
+    for k,v in ((1,2),(3,4)):
+        print(k)
+        print(v)
 
 if '__main__' == __name__:
-    print('%s  %s' %('11','22'))
+    test_item()
+    # test_parser_set()
+    # test_re()
+    # print('%s  %s' %('11','22'))
     # test_paramiko()
     # testconfigparser()
     # format_cnf()

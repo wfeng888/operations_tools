@@ -4,7 +4,8 @@ from configparser import ConfigParser
 from os import path
 
 import log
-from deploy.mysql import MysqldNotRunningException,MysqlCnfFileNotExistsException
+from deploy.mysql import MysqldNotRunningException, MysqlCnfFileNotExistsException, MysqlVersionNotMatchException, \
+    constant
 
 from deploy.mysql.DBUtils import safe_close, getVariable
 from deploy.mysql.DataSource import getDS
@@ -151,13 +152,20 @@ class MysqlBackup(BackupBase):
     def init(self):
         self.backup_param:str
         self.backup_param_filename = 'backup.param'
-        self.mysql_backup_param_config = ConfigParser(allow_no_value=True)
-        self.incremental_base_backup_param_config = None
-        self.softwarepath:str
-        self.software = ['software',None]
+        self.full_backup_param_config = ConfigParser(allow_no_value=True)
+        self.full_backup_decompress=False
+        self.incremental_backup_param_config = None
+        self.incremental_backup_decompress=False
+        self.backupsoftwarepath:str
+        self.backupsoftware = ['backupsoftware',None]
+        self.mysql_version = ['mysql_version',None]
+        self.mysql_base = ['--basedir',None]
         self.login_path = ['--login-path',None]
         self.target_dir = ['--target-dir',None]
-
+        self.full_dir=['--target-dir',None]
+        self.mysql_software_path:str=None
+        self.mysqld_safe_software_path:str = None
+        self.datadir = ['--datadir',None]
 
     def close(self):
         safe_close(self._conn)
@@ -172,7 +180,26 @@ class MysqlBackup(BackupBase):
         else:
             self._conn = conn
 
+    def preRestoreInit(self):
+        self.mysql_software_path = self._config.mysql_software_path
 
+    def updateRestoreConfig(self):
+        super(MysqlBackup, self).updateRestoreConfig()
+        cmd = 'cp -a {} {}'%(self.full_dir[1],self.tmp_dir)
+        self._sshobject.execute_cmd(cmd)
+        self.full_dir[1] = path_join(self.tmp_dir,self.full_dir[1].rpartition('/')[2])
+        paramf = path_join(self.full_dir[1],self.backup_param_filename)
+        self.getBackupParam(paramf,self.full_backup_param_config)
+        self.mysql_version[1] = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_version[0],fallback=None)
+        tmpmysqlpath = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_base[0].replace('-',''),fallback=None)
+        self.mysql_base[1] = self.getRestoredMysqlBase((self.mysql_software_path,tmpmysqlpath))
+        self.mysql_software_path = path_join(self.mysql_base[1],'bin/mysql')
+        self.mysqld_safe_software_path = path_join(self.mysql_base[1],'bin/mysqld_safe')
+
+    def updateBackupConfig(self):
+        self.mysql_version[1] = self.getMysqldVersion()
+        self.mysql_base[1] = getVariable(self.mysql_base[0].replace('-',''),self._conn)
+        self.datadir = getVariable(self.datadir[0].replace('-',''),self._conn)
 
     @record_log
     def getMysqldCommand(self):
@@ -182,22 +209,34 @@ class MysqlBackup(BackupBase):
             return data
         return None
 
+    def getMysqldVersion(self):
+        data = self.getMysqldCommand()
+        mysqldpath = to_text(data).replace('--','').partition(' ')[0]
+        return self.findMysqldVersion(mysqldpath)
 
-    def getMysqldVersion(self,mysqldpath:str):
-        endfile = mysqldpath.rpartition('/')[2]
-        if self._sshobject.isDir(mysqldpath):
-            cmd =  'find . -name mysqld | wc -l'
-            data = self._sshobject.execute_cmd(cmd,False)
-            if data == 1:
-                cmd = ' find . -name mysqld'
-                data = self._sshobject.execute_cmd(cmd,False)
-                mysqldpath = path_join(mysqldpath,data)
+    def findMysqldVersion(self,mysqldpath):
+        cmd = '%s --version'%mysqldpath
+        data = to_text(self._sshobject.execute_cmd(cmd,False))
+        # eg: mysqld  Ver 8.0.17
+        r = re.search('mysqld  Ver ([1-9]+\.[0-9]+\.[0-9]+)',data)
+        if r:
+            return r.group(1)
+        return None
 
-        cmd = mysqldpath + ' -v'
-        self._sshobject.execute_cmd()
+    def getRestoredMysqlBase(self,mysqldpath:str):
+        if not isinstance(mysqldpath,(list,tuple)):
+            mysqldpath = (mysqldpath,)
+        for mpath in mysqldpath:
+            if self._sshobject.isFile(mpath):
+                mpath = mpath.rpartition('/')[0]
+            cmd =  'find . -name mysqld '
+            mysqlds = to_text(self._sshobject.execute_cmd(cmd,False))
+            for p in mysqlds.splitlines():
+                sv = self.findMysqldVersion(path_join(mpath,p))
+                if sv == self.mysql_version[1]:
+                    return path_join(mpath,p).rpartition('/')[0].rpartition('/')[0]
+        raise MysqlVersionNotMatchException('Can not find a mysql which version match with  backup files')
 
-    def updateConfig(self):
-        self.target_dir[1] = self._config.backup_dir
 
     @record_log
     def prepareBackupEnv(self):
@@ -208,6 +247,34 @@ class MysqlBackup(BackupBase):
             return ConnectionBase.SHELL_SUCCESS
         return ConnectionBase.SHELL_FAILED
 
+    def beforeBackup(self):
+        self.backup_param += ' ' + self.compactItem(True,self.backupsoftware,self.mysql_version,self.mysql_base)
+
+    @record_log
+    def compactItem(self,erase,*args):
+        cmd = ''
+        for item in args:
+            if isinstance(item,(list,tuple)):
+                if len(item) > 2 and string_true_bool(item[2]) or len(item) == 2:
+                    name = item[0]
+                    if erase:
+                        name = item[0].lstrip('-')
+                    cmd += ' ' + name
+                    if not none_null_stringNone(item[1]):
+                        cmd += '=' + str(item[1])
+            else:
+                cmd += ' ' + str(item)
+        return cmd
+
+    def getOldBackupConfig(self,option,section='mysqld'):
+        if getattr(self,'mysql_cnf_config',None):
+            v = getattr(self,'mysql_cnf_config').get(section,option,fallback=None)
+            if not v:
+                if self.incremental_backup_param_config:
+                    v = self.incremental_backup_param_config.get(section,option,fallback=None)
+                    if not v:
+                        v = self.full_backup_param_config.get(section,option,fallback=None)
+        return v
 
 class MysqlHotBackup(MysqlBackup):
 
@@ -221,17 +288,13 @@ class MysqlHotBackup(MysqlBackup):
         self.defaults_group_suffix = ['--defaults-group-suffix',None]
         self.socket = ['--socket',None]
         self.restore_target_dir:str
-        self.datadir = ['--datadir',None]
-        self.mysql_software_path:str
         self.restored_mysql_cnfname='backup_my.cnf'
         self.mysql_cnf_config = ConfigParser(allow_no_value=True)
         self.incremental_basedir = ['--incremental-basedir',None,None]
         self.incremental_dir = ['--incremental-dir',None,None]
-        self.full_dir=['--target-dir',None]
         self.decompress = ['--decompress',None,None]
         self.parallel = ['--parallel',4,True]
         self.log_bin = ['--log-bin',None]
-        self.incremental_basee_decompress = False
         self.compress = ['--compress','quicklz',None]
         self.target_dir = ['--target-dir',None]
 
@@ -250,20 +313,13 @@ class MysqlHotBackup(MysqlBackup):
                     cnf.set(sec,option,str(getVariable(option.replace('-','_'),self._conn)))
         cw = ConfigWriter()
         cnf.write(cw)
-        tmpcnfpath = path_join('~',self.restored_mysql_cnf)
+        tmpcnfpath = path_join(self.tmp_dir,self.restored_mysql_cnfname)
         self._sshobject.execute_cmd('echo "' + cw.get() + '" > ' + tmpcnfpath)
         return tmpcnfpath
 
-    def updateRestoredCnf(self):
-        if self._config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT:
-            self.incremental_dir[1] = self._config.backup_dir
-            self.full_dir[1] = self._config.incremental_basedir
-        else:
-            self.target_dir = self._config.backup_dir
-
     def preInit(self):
         super(MysqlHotBackup, self).preInit()
-        self.restore_target_dir
+        self.restore_target_dir = self._config.restore_target_dir
 
     @record_log
     def setBackupCnfFile(self,cnffile=None,force=False):
@@ -283,14 +339,38 @@ class MysqlHotBackup(MysqlBackup):
                 raise MysqldNotRunningException('mysqld process not running , it shoud be')
 
     def setRestoreCnfFile(self):
-        cnf = path_join(self.target_dir,self.restored_mysql_cnf)
+        cnf = path_join(self.full_dir[1],self.restored_mysql_cnfname)
         if self._sshobject.fileExists(cnf):
             self.defaults_file[1] = cnf
         else:
-            raise MysqlCnfFileNotExistsException('can not find mysql config file in backup directory : {}'.format())
+            raise MysqlCnfFileNotExistsException('can not find mysql config file in backup directory : {}'.format(self.full_dir[1]))
         cmd = 'cat %s'%cnf
         cnfContent = self._sshobject.execute_cmd(cmd,False)
         self.mysql_cnf_config.read_string(to_text(cnfContent))
+        new_softwarebase = self.mysql_base[1]
+        old_softwarebase = self.getOldBackupConfig(self.mysql_base[0].replace('-',''))
+        new_data_base = self.datadir[1].rpartition('/')
+        old_data_base = self.getOldBackupConfig(self.datadir[0].replace('-',''))
+        def replace_cnfconfig(type,sec,option):
+            if type == constant.SOFTWARE_PATH:
+                o = old_softwarebase
+                n = new_softwarebase
+            else:
+                o = old_data_base
+                n = new_data_base
+            ov = self.mysql_cnf_config.get(sec,option,None)
+            if ov:
+                self.mysql_cnf_config.set(sec,option,ov.replace(o,n))
+        for sec in MYSQL57_CNF_VAR_PREFERENCE.keys():
+            for item in MYSQL57_CNF_VAR_PREFERENCE[sec]:
+                if isinstance(item,(list,tuple)):
+                    if item[2]:
+                        replace_cnfconfig(item[2],sec,item[0])
+        tmplocalpath = path.join(self.getLocalTmpDir(),self.restored_mysql_cnfname)
+        with open(tmplocalpath,'w') as wf:
+            self.mysql_cnf_config.write(wf)
+        self._sshobject.transferFileToRemote(tmplocalpath,self.defaults_file[1])
+
 
     def getBackupParam(self,path,parser):
         cmd = 'cat %s'%path
@@ -304,29 +384,6 @@ class MysqlHotBackup(MysqlBackup):
             return
         self.socket[1] = socketfile if socketfile else getVariable('socket',self._conn)
 
-    def beforeRestore(self):
-        if self.decompress[2]:
-            cmd = self.compactItem(False,*(self.softwarepath,self.decompress,self.target_dir,'2>&1'))
-            self._sshobject.execute_cmd(cmd)
-        if self.incremental_basee_decompress:
-            cmd = self.compactItem(False,*(self.softwarepath,self.decompress,self.incremental_basedir,'2>&1'))
-            self._sshobject.execute_cmd(cmd)
-
-    @record_log
-    def compactItem(self,erase,*args):
-        cmd = ''
-        for item in args:
-            if isinstance(item,(list,tuple)):
-                if len(item) > 2 and string_true_bool(item[2]) or len(item) == 2:
-                    name = item[0]
-                    if erase:
-                        name = item[0].lstrip('-')
-                    cmd += ' ' + name
-                    if not none_null_stringNone(item[1]):
-                        cmd += '=' + str(item[1])
-            else:
-                cmd += ' ' + str(item)
-        return cmd
 
     def getBackupCmd(self,cmd=None):
         pass
@@ -351,6 +408,7 @@ class MysqlHotBackup(MysqlBackup):
 
     @record_log
     def afterBackup(self):
+        super(MysqlHotBackup, self).afterBackup()
         param = ConfigParser(allow_no_value=True)
         param.set(None,'cmd',self.cmd)
         opts = self.formatOption(self.backup_param)
@@ -367,8 +425,8 @@ class MysqlHotBackup(MysqlBackup):
 
     @record_log
     def setBackupSoftWarePath(self):
-        cmd = 'which ' + self.software[1]
-        nostr = 'no ' + self.software[1] + ' in'
+        cmd = 'which ' + self.backupsoftware[1]
+        nostr = 'no ' + self.backupsoftware[1] + ' in'
         stat,data = self._sshobject.execute_cmd(cmd,False)
         if stat == ConnectionBase.SHELL_SUCCESS:
             data = to_text(data)
@@ -376,31 +434,30 @@ class MysqlHotBackup(MysqlBackup):
                 i = s.find(nostr)
                 if i >= 0 :
                     return None
-            self.softwarepath = data.replace('\r','').replace('\n','')
+            self.backupsoftwarepath = data.replace('\r','').replace('\n','')
 
     def preRestoreInit(self):
-        cmd = 'cp -a {} {}'%(self.target_dir,self.tmp_dir)
-        self._sshobject.execute_cmd(cmd)
-        self.target_dir[1] = path_join(self.tmp_dir,self.target_dir[1].rpartition('/')[2])
-
-
+        if self._config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT:
+            self.incremental_dir[1] = self._config.backup_dir
+            self.full_dir[1] = self._config.incremental_basedir
+        else:
+            self.full_dir[1] = self._config.backup_dir
 
     def updateRestoreConfig(self):
         super(MysqlHotBackup, self).updateRestoreConfig()
-        paramf = path_join(self.target_dir,self.backup_param_filename)
-        self.getBackupParam(paramf,self.mysql_backup_param_config)
-        if self.mysql_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace('-',''),fallback=None):
-            self.decompress[2] = True
-        if self.mysql_backup_param_config.get(configparser.DEFAULTSECT,self.incremental_basedir[0].replace('-',''),fallback=None):
-            self.incremental_basedir[1] = self.mysql_backup_param_config.get(configparser.DEFAULTSECT,self.incremental_basedir[0].replace('-',''))
-            self.incremental_dir[1] = self.target_dir
-        if self.incremental_basedir[1]:
-            paramf = path_join(self.incremental_basedir,self.backup_param_filename)
-            if self.incremental_base_backup_param_config == None:
-                self.incremental_base_backup_param_config = ConfigParser(allow_no_value=True)
-            self.getBackupParam(paramf,self.incremental_base_backup_param_config)
-            if self.incremental_base_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace(0).replace('-',''),fallback=None):
-                self.incremental_basee_decompress = True
+        if self.full_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace('-',''),fallback=None):
+            self.full_backup_decompress = True
+        if self.incremental_dir[1]:
+            cmd = 'cp -a {} {}'%(self.incremental_dir[1],self.tmp_dir)
+            self._sshobject.execute_cmd(cmd)
+            self.incremental_dir[1] = path_join(self.tmp_dir,self.incremental_dir[1].rpartition('/')[2])
+            paramf = path_join(self.incremental_dir[1],self.backup_param_filename)
+            if self.incremental_backup_param_config == None:
+                self.incremental_backup_param_config = ConfigParser(allow_no_value=True)
+            self.getBackupParam(paramf,self.incremental_backup_param_config)
+            if self.incremental_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace(0).replace('-',''),fallback=None):
+                self.incremental_backup_decompress = True
+        self.setRestoreCnfFile()
 
 
     def updateBackupConfig(self):
@@ -418,6 +475,12 @@ class MysqlHotBackup(MysqlBackup):
         if not self._sshobject.fileExists(self.restore_target_dir):
             self._sshobject.mkdir()
         self._sshobject.execute_cmd('cd {};mkdir -p data var log'.format(self.restore_target_dir))
+        self.datadir[1] = path_join(self.restore_target_dir,'data')
+
+    def afterRestore(self):
+        super(MysqlHotBackup, self).afterRestore()
+        cmd = self.compactItem(False,self.mysqld_safe_software_path,self.defaults_file,'&')
+        self._sshobject.execute_backupground(cmd)
 
 
 class Xtrabackup(MysqlHotBackup):
@@ -456,7 +519,7 @@ class Xtrabackup(MysqlHotBackup):
         self.safe_slave_backup = '--safe-slave-backup'
         self.safe_slave_backup_timeout = ['--safe-slave-backup-timeout',3000]
         self.rsync = '--rsync'
-        self.software[1] = 'xtrabackup'
+        self.backupsoftware[1] = 'xtrabackup'
 
 
     def prepareRestoreEnv(self):
@@ -475,8 +538,8 @@ class Xtrabackup(MysqlHotBackup):
 
     @record_log
     def getBackupCmd(self):
-        cmd = self.compactItem(False,self.softwarepath,self.defaults_file,self.user,self.password,self.target_dir,self.slave_info,self.safe_slave_backup,self.safe_slave_backup_timeout,self.socket,self.compress,self.compress_threads,self.incremental_basedir,self.backup,'2>&1')
-        self.backup_param = self.compactItem(True,self.software,self.compress,self.incremental_basedir)
+        cmd = self.compactItem(False,self.backupsoftwarepath,self.defaults_file,self.user,self.password,self.target_dir,self.slave_info,self.safe_slave_backup,self.safe_slave_backup_timeout,self.socket,self.compress,self.compress_threads,self.incremental_basedir,self.backup,'2>&1')
+        self.backup_param += ' ' + self.compactItem(True,self.compress,self.incremental_basedir)
         return cmd
 
     @record_log
@@ -485,7 +548,30 @@ class Xtrabackup(MysqlHotBackup):
         return super(Xtrabackup, self).afterBackup()
 
     def beforeRestore(self):
-        if self.decompress[2]:
+        super(Xtrabackup, self).beforeRestore()
+        for k,v in ((self.incremental_backup_decompress,self.incremental_dir[1]),(self.full_backup_decompress,self.full_dir[1])):
+            if k:
+                self.target_dir[1] = v
+                self.decompress[2] = k
+                cmd = self.compactItem(False,self.backupsoftwarepath,self.decompress,self.target_dir,'2>&1')
+                self._sshobject.execute_cmd(cmd)
+
+        cmd = self.compactItem(False,self.backupsoftwarepath,self.target_dir,self.incremental_dir,self.prepare,'2>&1')
+        stat,_ = self._sshobject.execute_cmd(cmd)
+        return stat
+
+    def do_restore(self):
+        super(Xtrabackup, self).do_restore()
+        cmd = 'cp %s  %s' % (self.defaults_file[1],path_join(self.restore_target_dir,'my.cnf'))
+        self._sshobject.execute_cmd(cmd)
+        self.defaults_file[1] = path_join(self.restore_target_dir,'my.cnf')
+        self.target_dir[1] = self.full_dir[1]
+        cmd = self.compactItem(False,self.backupsoftwarepath,self.defaults_file,self.target_dir,self.copy_back,'2>&1')
+        stat,_ = self._sshobject.execute_cmd(cmd)
+        return stat
+
+
+
 
 
 
@@ -493,7 +579,7 @@ class MysqlEnterpriseBackup(MysqlHotBackup):
 
     def __init__(self,sshobject,backupconfig,ds=None,conn=None):
         super(MysqlEnterpriseBackup, self).__init__(sshobject,backupconfig,ds,conn)
-        self.software[1] = 'mysqlbackup'
+        self.backupsoftware[1] = 'mysqlbackup'
 
 class MysqlLogicBackup(MysqlBackup):
 
@@ -501,17 +587,19 @@ class MysqlLogicBackup(MysqlBackup):
     def __init__(self,sshobject,backupconfig,ds=None,conn=None):
         super(MysqlLogicBackup, self).__init__(sshobject,backupconfig,ds,conn)
         if self._config.operate == self._config._CONS_OPERATE_BACKUP:
-            self.software[1] = 'mysqldump'
+            self.backupsoftware[1] = 'mysqldump'
         else:
-            self.software[1] = 'mysql'
+            self.backupsoftware[1] = 'mysql'
 
     def setSoftWarePath(self):
         data = self.getMysqldCommand()
         if data:
             data = to_text(data).replace('--','')
             res = data.partition(' ')
-        self.softwarepath = path_join(path.dirname(res[0]),self.software[1])
+        self.backupsoftwarepath = path_join(path.dirname(res[0]),self.backupsoftware[1])
 
+    def preRestoreInit(self):
+        self.full_dir[1] = self._config.backup_dir
 
 def backup_restore(backupconfig: config.MysqlBackupConfig):
     with ParamikoConnection(backupconfig.host,backupconfig.ssh_user,backupconfig.ssh_password,backupconfig.ssh_port) as pk:
