@@ -400,6 +400,9 @@ class Ui_MainWindow(object):
         self._mysqlRestoreTargetDirEditLine = self._addEditLine('mysqlRestoreTargetDirEditLine')
         self._mysqlRestoreTargetDirButton = self._createButton('browse',None,enabled=False)
 
+        self._mysqlSoftwarePathLabel = QLabel("mysql software path")
+        self._mysqlSoftwarePathEditLine = self._addEditLine('mysqlSoftwarePathEditLine')
+        self._mysqlSoftwarePathButton = self._createButton('browse',None,enabled=False)
 
         self.launchBackupMysqlButton = self._createQCommandLinkButton('backup',self._mysqlCheckAndSetConfig,True)
 
@@ -432,6 +435,10 @@ class Ui_MainWindow(object):
         self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirLabel,10,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirEditLine,10,1,1,3)
         self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirButton,10,4)
+
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathLabel,11,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathEditLine,11,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathButton,11,4)
 
     def _setupRestoreMysqlWidget(self):
         self.restoreMysqlQWidget = QtWidgets.QWidget()

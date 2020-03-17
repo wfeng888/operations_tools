@@ -9,17 +9,24 @@ class MysqlVarAttribute(object):
         self._var_scope = var_scope
         self._dynamic = dynamic
 
+
+SOFTWARE_PATH,LOG_PATH,DATA_PATH,VAR_PATH = range(4)
+
 MYSQL57_CNF_VAR_PREFERENCE = {
+
     'client':('port',),
-    'mysql':(['default-character-set','character-set-server'],),
-    'mysqld':('port','basedir','plugin-dir','datadir','pid_file','socket','lc-messages-dir','character-set-server',
+    'mysql':(['default-character-set','character-set-server',None],),
+    'mysqld':('port',['basedir',None,SOFTWARE_PATH],['plugin-dir',None,SOFTWARE_PATH],['datadir',None,DATA_PATH],['pid_file',None,VAR_PATH],
+              ['socket',None,VAR_PATH],'character-set-server',
               'server-id','default-storage-engine','innodb_file_format','innodb_file_format_max','innodb_file_per_table',
               'innodb_log_buffer_size','innodb_buffer_pool_size','innodb_log_files_in_group','innodb_thread_concurrency',
               'innodb_flush_log_at_trx_commit','sync_binlog','thread_cache_size','max_connections','group_concat_max_len',
               'event_scheduler','show_compatibility_56','read_only','super_read_only','log-bin-trust-function-creators',
-              'slow-query-log','slow_query_log_file','long_query_time','log_slow_slave_statements','binlog_format',
-              'expire_logs_days','log_bin','log_bin_index','log_error','relay_log','relay_log_index','relay_log_info_file',
-              'general_log_file','master_info_repository','relay_log_info_repository','log_slave_updates','gtid_mode',
+              'slow-query-log',['slow_query_log_file',None,LOG_PATH],'long_query_time','log_slow_slave_statements','binlog_format',
+              'expire_logs_days',['log_bin',None,LOG_PATH],['log_bin_index',None,LOG_PATH],['log_error',None,LOG_PATH],['relay_log',None,LOG_PATH],
+              ['relay_log_index',None,LOG_PATH]
+              ,['relay_log_info_file',None,LOG_PATH],['general_log_file',None,LOG_PATH],'master_info_repository','relay_log_info_repository','log_slave_updates',
+              'gtid_mode',
               'enforce_gtid_consistency','max_binlog_size','innodb_log_file_size','innodb_log_files_in_group','query_cache_size',
               'tmp_table_size','myisam_max_sort_file_size','myisam_sort_buffer_size','key_buffer_size','read_buffer_size',
               'read_rnd_buffer_size','sort_buffer_size','bulk_insert_buffer_size','max_allowed_packet','sql_mode')

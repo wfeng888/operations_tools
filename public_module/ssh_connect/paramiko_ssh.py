@@ -3,6 +3,7 @@ import traceback
 from functools import wraps
 
 from paramiko import SSHClient, WarningPolicy, Channel
+import stat
 
 import log
 from public_module import to_bytes, to_text
@@ -103,12 +104,23 @@ class ParamikoConnection(ConnectionBase):
         except BaseException as e:
             log.error(traceback.format_exc())
 
+    def stat(self,remotepath):
+        try:
+            return self.open_sftp().stat(remotepath)
+        except IOError as e:
+            log.debug(traceback.format_exc())
+            return None
 
     def fileExists(self,path):
-        try:
-            sc = self.open_sftp()
-            msg = sc.stat(path)
+        msg = self.stat(path)
+        if msg:
             return True
-        except IOError as e:
-            pass
         return False
+
+    def isDir(self,path):
+        msg = self.stat(path)
+        if msg:
+            return stat.S_ISDIR(msg.st_mode)
+        else:
+            return None
+

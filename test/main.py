@@ -9,7 +9,7 @@
 # from deploy.until import list_sqlfile, _sort, valid
 # from public_module import to_bytes, to_text
 # from public_module.config import BackupConfig
-# from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
+from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 #
 #
 # def list_sqlfile_new(filepath):
@@ -42,14 +42,13 @@
 #
 #
 #
-# def test_paramiko():
-#     with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
-#         # mysqlpath = '/usr/local/mysql-5.7.23-el7-x86_64/bin/mysqld_safe'
-#         # start_shell = mysqlpath+' --defaults-file=/database/my3579/my.cnf '
-#         # cmd = 'echo " nohup ' + start_shell + ' &" > /database/my3579/start.sh '
-#         # execute_cmd(cmd,sclient=pk)
-#         cmd = 'nohup sh /database/my3579/start.sh > /dev/null 2>&1 & '
-#         stat,_ = execute_cmd(cmd,sclient=pk)
+
+
+def test_paramiko():
+    with ParamikoConnection('10.45.156.210','mysql','8845') as pk:
+        path = '/database'
+        msg = pk.stat(path)
+        print(msg)
 #
 #
 # def execute_backupground():
@@ -237,7 +236,9 @@ def testconfigparser():
 
 
 if '__main__' == __name__:
-    testconfigparser()
+    print('%s  %s' %('11','22'))
+    # test_paramiko()
+    # testconfigparser()
     # format_cnf()
     # test_split()
     # re_search()
