@@ -10,7 +10,7 @@ class MysqlVarAttribute(object):
         self._dynamic = dynamic
 
 
-SOFTWARE_PATH,LOG_PATH,DATA_PATH,VAR_PATH = range(4)
+SOFTWARE_PATH,LOG_PATH,DATA_PATH,VAR_PATH,CORRESPONDING = range(5)
 
 MYSQL57_CNF_VAR_PREFERENCE = {
 

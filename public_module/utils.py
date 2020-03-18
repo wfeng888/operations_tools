@@ -1,5 +1,6 @@
 import re
 import time
+import traceback
 from functools import wraps
 
 from PyQt5.QtCore import QThread
@@ -53,3 +54,10 @@ def record_log(func):
         log.debug('the end')
         return r
     return wrapper
+
+
+def safe_doing(func,*args):
+    try:
+        func(*args)
+    except BaseException as e:
+        print(traceback.format_exc())

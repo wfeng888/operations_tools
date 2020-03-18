@@ -310,6 +310,7 @@ class Ui_MainWindow(object):
         config.ssh_user = self._mysqlSSHUserEditline.text().strip()
         config.ssh_port = self._mysqlSSHPortEditline.text().strip()
         config.ssh_password = self._mysqlSSHPasswordEditline.text().strip()
+        config.mysql_software_path = self._mysqlSoftwarePathEditLine.text().strip()
         if self._mysqlBackupCompressCheckBox.isChecked():
             config.compress = True
         if self._mysqlBackupToLocalCheckBox.isChecked():
@@ -385,7 +386,7 @@ class Ui_MainWindow(object):
 
         self._mysqlBackupPathLabel = QLabel("backup path")
         self._mysqlbackupPathEditLine = self._addEditLine('mysqlBackupPath')
-        self._mysqlbackupPathEditLine.setText('/data/backup/my3578')
+
         self._mysqlBackupPathButton = self._createButton('browse',None,enabled=False)
 
         self._mysqlBackupLocalPathLabel = QLabel("local save path")
@@ -439,6 +440,14 @@ class Ui_MainWindow(object):
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathLabel,11,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathEditLine,11,1,1,3)
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathButton,11,4)
+
+        self.occupyTestData()
+
+    def occupyTestData(self):
+        self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
+        self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
+        self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-03-18')
+
 
     def _setupRestoreMysqlWidget(self):
         self.restoreMysqlQWidget = QtWidgets.QWidget()

@@ -8,6 +8,7 @@ import stat
 import log
 from public_module import to_bytes, to_text
 from public_module.ssh_connect import ConnectionBase
+from public_module.utils import safe_doing
 
 
 def initial_only(func):
@@ -67,39 +68,46 @@ class ParamikoConnection(ConnectionBase):
         return self._sclint.open_sftp()
 
 
-    def execute_backupground(self,cmd,consumeoutput=True,logtofile=None):
+    def execute_backupground(self,cmd,consumeoutput=True,logfile=None):
         channel,stdin,stdout = self.newChannel()
         channel.invoke_shell()
-        stdin.write(to_bytes(cmd))
+        stdin.write(to_bytes(cmd + '\r\n'))
         stdin.flush()
         def timerstop():
-            threading.Event().wait(1)
+            threading.Event().wait(2)
             channel.close()
         threading.Thread(target=timerstop).start()
         data = stdout.readline()
         while(data or not channel.closed):
             if consumeoutput:
                 log.info(to_text(data))
-            if logtofile:
+            if logfile:
                 pass
             data = stdout.readline()
         return data
 
-    def execute_cmd(self,cmd,consumeoutput=True,logtofile=None):
+    def execute_cmd(self,cmd,consumeoutput=True,logfile=None):
         try:
             log.debug(cmd)
             channel,_,_ = self.inner_execute_cmd(to_bytes(cmd))
             result = bytes()
             data = channel.recv(self.DEFAULT_BUFFER_SIZE)
+            l = None
+            if logfile:
+                l =  open(logfile,'ab')
             while(data):
                 if consumeoutput:
                     log.info(to_text(data))
                 else:
                     result += data
+                if l:
+                    l.write(data)
                 data = channel.recv(self.DEFAULT_BUFFER_SIZE)
             stat = channel.recv_exit_status()
             if channel:
                 del channel
+            if l:
+                safe_doing(l.close)
             return stat,result
         except BaseException as e:
             log.error(traceback.format_exc())
@@ -108,7 +116,6 @@ class ParamikoConnection(ConnectionBase):
         try:
             return self.open_sftp().stat(remotepath)
         except IOError as e:
-            log.debug(traceback.format_exc())
             return None
 
     def fileExists(self,path):
@@ -127,7 +134,9 @@ class ParamikoConnection(ConnectionBase):
     def isFile(self,path):
         msg = self.stat(path)
         if msg:
-            return stat.S_IFREG(msg.st_mode)
+            return stat.S_ISREG(msg.st_mode)
         else:
             return None
 
+    def listdir(self,dir):
+        return self.open_sftp().listdir(dir)

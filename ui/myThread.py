@@ -3,6 +3,7 @@ import traceback
 from PyQt5.QtCore import QThread, QMutexLocker, pyqtSignal, QMutex
 
 import log
+from deploy.mysql import BackupException
 from public_module.global_vars import addNotifier,removeNotifier
 from public_module.config import threadSafeConfig
 
@@ -55,6 +56,9 @@ class MyThread(QThread):
             self._state = self.FINISHED
             self._runningResult = self.SUCCESS
             removeNotifier()
+        except BackupException as e:
+            log.error(e)
+            self._runningResult = self.FAIL
         except BaseException as e:
             log.error(traceback.format_exc())
             self._runningResult = self.FAIL
