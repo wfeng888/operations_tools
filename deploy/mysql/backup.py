@@ -76,6 +76,7 @@ class BackupBase(ContextManager):
     def backupInit(self):
         self._config.backup_dir = path_join(self._config.backup_base_dir,formatDate())
 
+
     def restoreInit(self):
         self._config.backup_dir = self._config.backup_base_dir
 
@@ -143,7 +144,6 @@ class BackupBase(ContextManager):
 
 
 class MysqlBackup(BackupBase):
-
     def __init__(self,sshobject,backupconfig,ds=None,conn=None):
         super(MysqlBackup, self).__init__(sshobject,backupconfig)
         if not self._config.operate == MysqlBackupConfig._CONS_OPERATE_RESTORE:
@@ -170,12 +170,11 @@ class MysqlBackup(BackupBase):
         self.login_path = ['--login-path',None]
         self.target_dir = ['--target-dir',None]
         self.full_dir=['--target-dir',None]
-        self.mysql_software_path = None
-        self.mysqld_safe_software_path:str = None
         self.datadir = ['--datadir',None]
-        self.logdir = None
+        self.log_err_dir = None
         self.databases = ['--databases',None]
         self.backup_success_flag = 'completed OK'
+        self.socket = ['--socket',None]
 
     def checkBackupOk(self,*args):
         pass
@@ -225,10 +224,6 @@ class MysqlBackup(BackupBase):
         safe_close(self._conn)
         super(MysqlBackup, self).close()
 
-    def restoreInit(self):
-        super(MysqlBackup, self).restoreInit()
-        self.mysql_software_path = self._config.mysql_software_path
-
     def getBackupParam(self,path,parser):
         cmd = 'cat %s'%path
         stat,paramContent = self._sshobject.execute_cmd(cmd,False)
@@ -244,17 +239,11 @@ class MysqlBackup(BackupBase):
         if stat != ConnectionBase.SHELL_SUCCESS:
             raise FileCopyException('copy backup file from %s to temp directory %s failed!' %(self.full_dir[1],self.tmp_dir))
         self.full_dir[1] = path_join(self.tmp_dir,self.full_dir[1].rpartition('/')[2])
-        paramf = path_join(self.full_dir[1],self.backup_param_filename)
-        self.getBackupParam(paramf,self.full_backup_param_config)
-        self.mysql_version[1] = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_version[0],fallback=None)
-        tmpmysqlpath = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_base[0].replace('-',''),fallback=None)
-        self.mysql_base[1] = self.getRestoredMysqlBase((self.mysql_software_path,tmpmysqlpath))
-        self.mysql_software_path = path_join(self.mysql_base[1],'bin/mysql')
-        self.mysqld_safe_software_path = path_join(self.mysql_base[1],'bin/mysqld_safe')
+
 
     def updateBackupConfig(self):
         super().updateBackupConfig()
-        self.mysql_version[1] = self.getMysqldVersion()
+        self.mysql_version[1] = getVariable('innodb_version',self._conn)
         self.mysql_base[1] = getVariable(self.mysql_base[0].replace('-',''),self._conn)
         self.datadir[1] = getVariable(self.datadir[0].replace('-',''),self._conn)
         self.target_dir[1] = self._config.backup_dir
@@ -300,11 +289,7 @@ class MysqlBackup(BackupBase):
     @record_log
     def prepareBackupEnv(self):
         super(MysqlBackup, self).prepareBackupEnv()
-        if self._sshobject.fileExists(self.target_dir[1]):
-            self._sshobject.rename(self.target_dir[1])
-        cmd = 'mkdir -p %s'%self.target_dir[1]
-        stat,_ self._sshobject.execute_cmd(cmd)
-        if stat == ConnectionBase.SHELL_SUCCESS
+        if self._sshobject.mkdir(self.target_dir[1]):
             return ConnectionBase.SHELL_SUCCESS
         raise EnvironmentCheckException('')
 
@@ -350,7 +335,7 @@ class MysqlHotBackup(MysqlBackup):
         self.defaults_file = ['--defaults-file',None]
         self.defaults_extra_file = ['--defaults-extra-file',None]
         self.defaults_group_suffix = ['--defaults-group-suffix',None]
-        self.socket = ['--socket',None]
+
         self.restore_target_dir=None
         self.restored_mysql_cnfname='my.cnf'
         self.backup_mysql_cnfname='my.cnf.bak'
@@ -361,7 +346,6 @@ class MysqlHotBackup(MysqlBackup):
         self.parallel = ['--parallel',4]
         self.log_bin = ['--log-bin',None]
         self.compress = ['--compress','quicklz',None]
-        self.target_dir = ['--target-dir',None]
 
     @record_log
     def makeCnf(self):
@@ -427,7 +411,7 @@ class MysqlHotBackup(MysqlBackup):
             self.mysql_cnf_config.set(sec,'port',str(self._config.port))
         tmplogpath = self.mysql_cnf_config.get('mysqld','log-error',fallback=None)
         if not tmplogpath:
-            tmplogpath = path_join(self.logdir,'log.err')
+            tmplogpath = path_join(self.log_err_dir,'log.err')
             self.mysql_cnf_config.set('mysqld','log-error',tmplogpath)
         if not self._sshobject.fileExists(tmplogpath):
             cmd = 'touch %s'%tmplogpath
@@ -486,6 +470,13 @@ class MysqlHotBackup(MysqlBackup):
             self._sshobject.mkdir(self.restore_target_dir)
         if self._sshobject.listdir(self.restore_target_dir):
             raise EnvironmentCheckException('Restore target directory %s must be empty' %self.restore_target_dir)
+
+        paramf = path_join(self.full_dir[1],self.backup_param_filename)
+        self.getBackupParam(paramf,self.full_backup_param_config)
+        self.mysql_version[1] = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_version[0],fallback=None)
+        tmpmysqlpath = self.full_backup_param_config.get(configparser.DEFAULTSECT,self.mysql_base[0].replace('-',''),fallback=None)
+        self.mysql_base[1] = self.getRestoredMysqlBase((self._config.mysql_software_path,tmpmysqlpath))
+
         if self.full_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace('-',''),fallback=None):
             self.full_backup_decompress = True
         if self.incremental_dir[1]:
@@ -498,10 +489,12 @@ class MysqlHotBackup(MysqlBackup):
             self.getBackupParam(paramf,self.incremental_backup_param_config)
             if self.incremental_backup_param_config.get(configparser.DEFAULTSECT,self.compress[0].replace('-',''),fallback=None):
                 self.incremental_backup_decompress = True
+
         self._sshobject.execute_cmd('cd {};mkdir -p data var log'.format(self.restore_target_dir))
         self.datadir[1] = path_join(self.restore_target_dir,'data')
-        self.logdir = path_join(self.restore_target_dir,'log')
+        self.log_err_dir = path_join(self.restore_target_dir,'log')
         self.setRestoreCnfFile()
+
 
     def updateBackupConfig(self):
         super().updateBackupConfig()
@@ -517,7 +510,7 @@ class MysqlHotBackup(MysqlBackup):
 
     def afterRestore(self):
         super(MysqlHotBackup, self).afterRestore()
-        cmd = self.compactItem(False,self.mysqld_safe_software_path,self.defaults_file,'&')
+        cmd = self.compactItem(False,path_join(self.mysql_base[1],'bin/mysqld_safe'),self.defaults_file,'&')
         self._sshobject.execute_backupground(cmd)
         if self.getMysqldCommand():
             return ConnectionBase.SHELL_SUCCESS
@@ -638,36 +631,37 @@ class MysqlLogicBackup(MysqlBackup):
         self.sql_file = None
         self.backup_log_file = None
 
-    def updateConfig(self):
-        super(MysqlLogicBackup, self).updateConfig()
-        self.target_dir[1] = self._config.backup_dir
-        self.full_dir[1] = self.target_dir[1]
-
-
+    def restoreInit(self):
+        super(MysqlLogicBackup, self).restoreInit()
+        self.full_dir[1] = self._config.backup_dir
 
     def updateBackupConfig(self):
         super(MysqlLogicBackup, self).updateBackupConfig()
-        self.initConfig()
         self.backup_log_file = path_join(self.target_dir[1],self.backup_log_filename)
         self.sql_file = path_join(self.target_dir[1],self.sql_file_name)
+        self.databases[1] = self._config.databases
 
     def updateRestoreConfig(self):
         super(MysqlLogicBackup, self).updateRestoreConfig()
-        self.initConfig()
         self.restore_log_file = path_join(self.full_dir[1],self.restore_log_name)
         self.sql_file = path_join(self.full_dir[1],self.sql_file_name)
 
-    def initConfig(self):
+
+
+    def updateConfig(self):
+        super(MysqlLogicBackup, self).updateConfig()
+        self.mysql_base[1] = self.getRestoredMysqlBase()
         self.backupsoftwarepath = self.mysql_base[1]+'/bin/' + self.backupsoftware[1]
         self.socket[1] =  getVariable('socket',self._conn)
-        self.databases[1] = self._config.databases
 
-
-    # def setSoftWarePath(self):
-    #     data = self.getMysqldCommand()
-    #     if data:
-    #         res = to_text(data).partition(' ')[0].rpartition('/')[0]
-    #     self.backupsoftwarepath = path_join(res,self.backupsoftware[1])
+    def getRestoredMysqlBase(self):
+        data = getVariable('basedir',self._conn)
+        if data and self._sshobject.fileExists(data):
+            return data
+        data = self.getMysqldCommand()
+        if data:
+            return to_text(data).split()[0].rpartition('/')[0].rpartition('/')[0]
+        raise MysqldNotRunningException('mysql not running')
 
 
 class MysqlDump(MysqlLogicBackup):
@@ -720,20 +714,13 @@ class MysqlMysqlClient(MysqlLogicBackup):
         self.backupsoftware[1] = 'mysql'
 
     def checkBackupOk(self):
-        return self._checkBackupOk(self.target_dir[1])
+        return self._checkBackupOk(self.full_dir[1])
 
     def do_restore(self):
         super(MysqlMysqlClient, self).do_restore()
-        self.cmd[1] = self.compactItem(False,self.backupsoftwarepath,self.force,self.user,self.host,self.port,self.password,self.sql_file,'>/dev/null','2>',self.restore_log_file)
-        # stat = self._sshobject.execute_cmd(self.cmd[1])
+        self.cmd[1] = self.compactItem(False,self.backupsoftwarepath,self.force,self.user,self.socket,self.password,self.sql_file,'>/dev/null','2>',self.restore_log_file)
         self._sshobject.execute_backupground(self.cmd[1],logfile=self.restore_log_file,wait=True)
         return 0
-
-    def getRestoredMysqlBase(self,mysqldpath):
-        data = self.getMysqldCommand()
-        if data:
-            return to_text(data).split()[0].rpartition('/')[0].rpartition('/')[0]
-        raise MysqldNotRunningException('mysql not running')
 
     def versionGt(self,v1,v2):
         v1 = v1.split('.')

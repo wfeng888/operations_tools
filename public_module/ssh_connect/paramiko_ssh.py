@@ -88,14 +88,13 @@ class ParamikoConnection(ConnectionBase):
             threading.Event().wait(spread)
             channel.close()
         def wait_process_end(processid):
-            pinfo = processid
-            while(none_null_stringNone(pinfo)):
-                timerstop(10)
+            while(True):
+                threading.Event().wait(2)
                 cmd = 'ps --no-header -p %s'%processid
                 st,pinfo = self.execute_cmd(cmd)
                 if st == 0 and pinfo:
                     tpid = to_text(pinfo).strip().split()[0]
-                    if tpid == pinfo:
+                    if tpid == processid:
                         continue
                 break
             safe_doing(channel.close)
@@ -103,8 +102,8 @@ class ParamikoConnection(ConnectionBase):
             while (not self.fileExists(logfile) and not channel.closed):
                 threading.Event().wait(1)
             if self.fileExists(logfile) and not channel.closed:
-                cmd = 'tail -f %s '%logfile
-                stdin.write(to_bytes(cmd) + '\r\n')
+                cmd = 'tail -f %s  \r\n'%logfile
+                stdin.write(to_bytes(cmd))
                 stdin.flush()
                 data = stdout.readline()
                 while(data or not channel.closed):
@@ -147,7 +146,7 @@ class ParamikoConnection(ConnectionBase):
                 else:
                     result += data
                 if l:
-                    l.write(data)
+                    l.write(to_text(data))
                 data = channel.recv(self.DEFAULT_BUFFER_SIZE)
             stat = channel.recv_exit_status()
             if channel:
@@ -157,6 +156,7 @@ class ParamikoConnection(ConnectionBase):
             return stat,result
         except BaseException as e:
             log.error(traceback.format_exc())
+        return None,None
 
     def stat(self,remotepath):
         try:
@@ -187,7 +187,7 @@ class ParamikoConnection(ConnectionBase):
     def isLink(self,path):
         msg = self.stat(path)
         if msg:
-            return stat.S_ISLNK()
+            return stat.S_ISLNK(msg.st_mode)
         else:
             None
 

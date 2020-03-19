@@ -32,9 +32,9 @@ class ConnectionBase(ContextManager,metaclass=ABCMeta):
         try:
             if self.fileExists(path):
                 self.rename(path)
-            sc = self.open_sftp()
-            sc.mkdir(path)
-            return True
+            cmd = 'mkdir -p %s'%path
+            stat,_ = self.execute_cmd(cmd)
+            return  stat == self.SHELL_SUCCESS
         except IOError as e:
             pass
         return False
