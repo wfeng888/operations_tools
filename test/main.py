@@ -253,8 +253,15 @@ def test_item():
         print(k)
         print(v)
 
+def test_list():
+    l = [1,2,3]
+    s = ('%s'%l).replace('[').replace(']')
+    print(s)
+    print(type(s))
+
 if '__main__' == __name__:
-    test_item()
+    test_list()
+    # test_item()
     # test_parser_set()
     # test_re()
     # print('%s  %s' %('11','22'))

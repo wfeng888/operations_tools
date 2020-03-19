@@ -77,7 +77,7 @@ class MyThread(QThread):
                 result = self.SUCCESS
             else:
                 result = self.FAIL
-        if not isinstance(self,int):
+        if not isinstance(result,int):
             result = self.FAIL
         return result
 

@@ -2,8 +2,10 @@ from public_module.ssh_connect import ConnectionBase
 
 
 class BackupException(Exception):
+    _msg =  ' '
     def __init__(self,msg):
-        self._msg = msg
+        if msg:
+            self._msg += ' ' + msg
 
     def __repr__(self):
         return self._msg
@@ -22,41 +24,29 @@ class FileCopyException(BackupException):
 
 class CheckMysqlBackupFileException(BackupException):
     _msg = 'check backup file failed , is the backup file exists ? the other reason may be the last backup had not completed success!'
-    def __init__(self,msg):
-        if msg:
-            self._msg = msg
-        super(CheckMysqlBackupFileException, self).__init__(self._msg)
+
 
 class ReadBackupParamException(BackupException):
     _msg = 'read backup param failed,please check backup param file '
-    def __init__(self,filepath):
-        if filepath:
-            self._msg += ' ' + filepath
-        super(ReadBackupParamException, self).__init__(self._msg)
-
 
 
 class ReadBackupConfigFileException(BackupException):
     _msg = 'read backup param failed,please check backup config file '
-    def __init__(self,filepath):
-        if filepath:
-            self._msg += ' ' + filepath
-        super().__init__(self._msg)
+
 
 class BackupDecompressException(BackupException):
     _msg = 'decompress backup directory %s failed. decompress need install qpress software '
-    def __init__(self,filepath):
-        if filepath:
-            self._msg += ' ' + filepath
-        super().__init__(self._msg)
 
 
 class EnvironmentCheckException(BackupException):
     _msg = 'Environment check failed! '
-    def __init__(self,filepath):
-        if filepath:
-            self._msg += ' ' + filepath
-        super().__init__(self._msg)
+
+
+class RestoreFailedException(BackupException):
+    _msg =  'Restore failed! '
+
+class BackupFailedException(BackupException):
+    _msg =  'Backup failed! '
 
 
 def checkStatAndRaise(stat,cls,*args):

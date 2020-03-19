@@ -6,6 +6,7 @@ from functools import wraps
 from PyQt5.QtCore import QThread
 
 import log
+from public_module import to_text
 
 getCurrentThreadID = QThread.currentThread
 
@@ -22,6 +23,11 @@ def stringNone(param):
     return  param and str(param).upper() == 'NONE'
 
 def none_null_stringNone(param):
+    if isinstance(param,(tuple,list)):
+        for i in param:
+            if not (isNull(param) or stringNone(param)):
+                return False
+        return True
     return isNull(param) or stringNone(param)
 
 def string_true_bool(param):
@@ -61,3 +67,22 @@ def safe_doing(func,*args):
         func(*args)
     except BaseException as e:
         print(traceback.format_exc())
+
+def whichPath(software,sshconnect):
+    cmd = 'which ' + software
+    nostr = 'no ' + software + ' in'
+    stat,data = sshconnect.execute_cmd(cmd,False)
+    if stat == 0:
+        data = to_text(data)
+        for s in data.splitlines():
+            i = s.find(nostr)
+            if i >= 0 :
+                return None
+        data = data.replace('\r','').replace('\n','')
+        if sshconnect.isLink(data):
+            cmd = 'readlink data'
+            stat,tdata = sshconnect.execute_cmd(cmd)
+            if stat == 0 and tdata:
+                return to_text(tdata).replace('\r','').replace('\n','')
+        return data
+    return None

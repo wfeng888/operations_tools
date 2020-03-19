@@ -3,11 +3,12 @@ import traceback
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QPushButton, QFileDialog, QLineEdit, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy, \
     QButtonGroup
 
 from deploy.mysql.backup import  backup_restore
-from deploy.mysql.mysql_exec import execute_createDB
+from deploy.mysql.mysql_exec import execute_createDB, isInstanceActive
 from deploy.mysql import DBUtils
 from public_module import config
 
@@ -335,7 +336,7 @@ class Ui_MainWindow(object):
 
     def _launchCheckMysqlAlive(self):
         log.debug('Begin to check mysql !')
-        self._launchTask(DBUtils.isInstanceActive,MYSQL_CHECK_ALIVE,'checkMysqlAlive')
+        self._launchTask(isInstanceActive,MYSQL_CHECK_ALIVE,'checkMysqlAlive')
 
 
     def _addCheckBox(self,title,checked=False,member=None):
@@ -447,6 +448,7 @@ class Ui_MainWindow(object):
         self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
         self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
         self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-03-18')
+        self._mysqlBackupIncrementalBaseDirEditLine.setText('/data/backup/my3578/bak')
 
 
     def _setupRestoreMysqlWidget(self):
@@ -638,6 +640,9 @@ class Ui_MainWindow(object):
         tab.setObjectName("tab")
         logTextEdit = QTextEdit()
         logTextEdit.setReadOnly(True)
+        font = QFont()
+        font.setPointSize(20)
+        logTextEdit.setFont(font)
         commandTextEdit = QTextEdit()
         commandTextEdit.setMinimumHeight(100)
         commandTextEdit.cursor()
