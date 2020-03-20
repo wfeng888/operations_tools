@@ -1,4 +1,5 @@
 import traceback
+from collections import deque
 
 from mysql.connector import Error
 import log
@@ -24,11 +25,12 @@ def safe_close(resource,destroy=False):
         log.error(traceback.format_exc())
 
 def exec_stts(conn,statements):
-    if not isinstance(statements,(list,tuple)):
-        statements = (statements,)
+    # if not isinstance(statements,(list,tuple)):
+    #     statements = (statements,)
     with conn.cursor() as cursor:
-        for stt in statements:
+        for i in range(len(statements)):
             try:
+                stt = statements.popleft()
                 log.debug('exec statement:{}'.format(stt))
                 cursor.execute(stt)
             except Error as e:

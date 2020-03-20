@@ -1,4 +1,4 @@
-
+import traceback
 
 import log
 from deploy.mysql.DBUtils import exec_stts, safe_close
@@ -12,8 +12,10 @@ _notifier = None
 def exec_warp(sqlfiles,total=0,curnum=0):
     global _notifier
     try:
+        conn = None
+        ds = None
         _config = getConfig()
-        ds = getDS()
+        ds = getDS(*(_config[MYSQL_CATEGORY]['user'],_config[MYSQL_CATEGORY]['password'],_config[MYSQL_CATEGORY]['host'],_config[MYSQL_CATEGORY]['port'],_config[MYSQL_CATEGORY]['database']))
         conn = ds.get_conn()
         dbexists = DBUtils.isDBExists(conn,_config[MYSQL_CATEGORY]['database'])
         if not dbexists:
@@ -24,6 +26,8 @@ def exec_warp(sqlfiles,total=0,curnum=0):
         notify_progress(1)
         exec(conn,sqlfiles,total,curnum)
         notify_progress(100)
+    except BaseException:
+        log.error(traceback.format_exc())
     finally:
         _notifier = None
         safe_close(conn)

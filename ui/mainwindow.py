@@ -15,6 +15,7 @@ from public_module import config
 import log
 from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, \
     checkGeneralConfigForMysql, MysqlBackupConfig, updateBackConfig
+from public_module.utils import none_null_stringNone
 
 from ui.myThread import MyThread
 
@@ -23,6 +24,7 @@ MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5
 TASK_IDLE,TASK_BUSY = range(2)
 TABPAGE,LOG,COMMAND,PROGRESS = range(4)
 RADIO_MYSQL_BACKUP,RADIO_MYSQL_RESTORE,RADIO_MYSQL_BACKUP_LOGIC,RADIO_MYSQL_BACKUP_FULL,RADIO_MYSQL_BACKUP_INCREMENT = range(5)
+BUTTON_SAVE_TO_LOCAL = range(1)
 CHECKBOX_MYSQL_BACKUPCOMPRESS,CHECKBOX_MYSQL_SAVE_LOCAL = range(2)
 BACKUP_MODE_MAP = {
     RADIO_MYSQL_BACKUP_LOGIC:MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC,
@@ -34,7 +36,9 @@ BACKUP_OPER_MAP = {
     RADIO_MYSQL_RESTORE:MysqlBackupConfig._CONS_OPERATE_RESTORE
 }
 
-
+BUTTON_DEAL_MAP = {
+    BUTTON_SAVE_TO_LOCAL:lambda obj,text:obj._mysqlBackupLocalPathEditLine.setText(text)
+}
 
 
 
@@ -106,6 +110,7 @@ class Ui_MainWindow(object):
         self._checkButtonEnable()
 
     def _setupMysqlPubPannel(self):
+        self.pubConfigGridLayout = QtWidgets.QGridLayout(self.mysqlQWidget)
         self.formLayoutWidget = QtWidgets.QWidget(self.mysqlQWidget)
         self.formLayoutWidget.setGeometry(QtCore.QRect(0, 0, 401, 181))
         self.formLayoutWidget.setObjectName("formLayoutWidget")
@@ -246,12 +251,10 @@ class Ui_MainWindow(object):
         setSQLFileDirectory(directory)
         self._checkButtonEnable(MYSQL_CREATE_DB)
 
-    def _getFileDir(self,displayobj=None,callback=None):
+    def _getFileDir(self,id,displayobj=None):
         directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
         if displayobj:
             displayobj.setText(directory)
-        if callback:
-            callback(directory)
 
     # def _setButtonEnable(self,id,enabled):
     #     self.setEnable[id](enabled)
@@ -314,7 +317,7 @@ class Ui_MainWindow(object):
         config.mysql_software_path = self._mysqlSoftwarePathEditLine.text().strip()
         if self._mysqlBackupCompressCheckBox.isChecked():
             config.compress = True
-        if self._mysqlBackupToLocalCheckBox.isChecked():
+        if self._mysqlBackupToLocalCheckBox.isChecked() and none_null_stringNone(self._mysqlBackupLocalPathEditLine.text()):
             config.is_save_to_local = True
             config.local_path = self._mysqlBackupLocalPathEditLine.text().strip()
         log.debug('updateBackConfig')
@@ -392,7 +395,7 @@ class Ui_MainWindow(object):
 
         self._mysqlBackupLocalPathLabel = QLabel("local save path")
         self._mysqlBackupLocalPathEditLine = self._addEditLine('mysqlBackupLocalPath')
-        self._mysqlBackupLocalPathButton = self._createButton('browse',None)
+        self._mysqlBackupLocalPathButton = self._createButton('browse',lambda :self._getFileDir(BUTTON_SAVE_TO_LOCAL,self._mysqlBackupLocalPathEditLine))
 
         self._mysqlBackupIncrementalBaseDirLabel = QLabel("incremental base path")
         self._mysqlBackupIncrementalBaseDirEditLine = self._addEditLine('mysqlBackupIncrementalBaseDir')

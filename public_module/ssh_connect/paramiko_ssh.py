@@ -111,7 +111,9 @@ class ParamikoConnection(ConnectionBase):
                     data = stdout.readline()
         data = stdout.readline()
         while(data):
-            pid = to_text(data).split()[1]
+            pid = to_text(data)
+            if len(pid.split())>1:
+                pid = pid.split()[1]
             if re.match('[0-9]+',pid):
                 break
             data = stdout.readline()

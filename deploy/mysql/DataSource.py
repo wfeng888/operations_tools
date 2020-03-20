@@ -128,7 +128,7 @@ class MysqlPooledDataSource(AbstractDataSource):
 
 def getDS(*args,**kwargs):
     if not ( args or kwargs ):
-        return DBUtilPooledDBDataSource.get_ds(**getConfig()[MYSQL_CATEGORY])
+        return DBUtilPooledDBDataSource.get_ds(**(getConfig()[MYSQL_CATEGORY]))
     return DBUtilPooledDBDataSource.get_ds(*args,**kwargs)
 
 def destroyDS():

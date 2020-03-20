@@ -175,6 +175,8 @@ class MysqlBackup(BackupBase):
         self.databases = ['--databases',None]
         self.backup_success_flag = 'completed OK'
         self.socket = ['--socket',None]
+        self.is_save_to_local = False
+        self.saved_local_path = None
 
     def checkBackupOk(self,*args):
         pass
@@ -207,6 +209,13 @@ class MysqlBackup(BackupBase):
             wf.flush()
         if self._sshobject.transferFileToRemote(tmppath,path_join(self.target_dir[1],self.backup_param_filename)):
             paramf_stat = 0
+        if self.is_save_to_local:
+            log.info('compress backup files')
+            s = self.target_dir[1].rpartition('/')
+            cmd = 'cd %s;tar -czpvf %s  %s'%(s[0],s[2] + '.tar.gz',s[2])
+            stat,_ = self._sshobject.execute_cmd(cmd)
+            if stat == ConnectionBase.SHELL_SUCCESS:
+                self._sshobject.transferFileFromRemote(self.target_dir[1]+'tar.gz',self.saved_local_path)
         return paramf_stat
 
     def _checkBackupOk(self,logdir):
@@ -247,6 +256,9 @@ class MysqlBackup(BackupBase):
         self.mysql_base[1] = getVariable(self.mysql_base[0].replace('-',''),self._conn)
         self.datadir[1] = getVariable(self.datadir[0].replace('-',''),self._conn)
         self.target_dir[1] = self._config.backup_dir
+        if self._config.is_save_to_local and self._config.local_path:
+            self.is_save_to_local = True
+            self.saved_local_path = self._config.local_path
 
     @record_log
     def getMysqldCommand(self):
