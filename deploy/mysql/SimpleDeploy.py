@@ -3,25 +3,24 @@ import traceback
 import log
 from deploy.mysql.DBUtils import exec_stts, safe_close
 from parse.outer_parse import simple_parse
-from public_module.config import getConfig, MYSQL_CATEGORY
+from public_module.config import getConfig, MYSQL_CATEGORY, CreateMysqlConfig
 from deploy.mysql.DataSource import getDS
 from deploy.mysql import DBUtils
 from public_module.global_vars import getNotifier
 
 _notifier = None
-def exec_warp(sqlfiles,total=0,curnum=0):
+def exec_warp(config:CreateMysqlConfig,sqlfiles,total=0,curnum=0):
     global _notifier
     try:
         conn = None
         ds = None
-        _config = getConfig()
-        ds = getDS(*(_config[MYSQL_CATEGORY]['user'],_config[MYSQL_CATEGORY]['password'],_config[MYSQL_CATEGORY]['host'],_config[MYSQL_CATEGORY]['port'],_config[MYSQL_CATEGORY]['database']))
+        ds = getDS(*(config.user,config.password,config.host,config.port,config.database))
         conn = ds.get_conn()
-        dbexists = DBUtils.isDBExists(conn,_config[MYSQL_CATEGORY]['database'])
+        dbexists = DBUtils.isDBExists(conn,config.database)
         if not dbexists:
             with conn.cursor() as cursor:
-                cursor.execute(DBUtils.SQL_CREATE_DATABASE.format(_config[MYSQL_CATEGORY]['database']))
-            conn.database = _config[MYSQL_CATEGORY]['database']
+                cursor.execute(DBUtils.SQL_CREATE_DATABASE.format(config.database))
+            conn.database = config.database
         _notifier = getNotifier()
         notify_progress(1)
         exec(conn,sqlfiles,total,curnum)

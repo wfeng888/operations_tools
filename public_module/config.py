@@ -34,8 +34,11 @@ class ConfigBase(object,metaclass=FieldMeta):
             return True
         return False
 
-class MysqlConfig(metaclass=FieldMeta):
+class MysqlConfig(ConfigBase):
     database:str
+
+class CreateMysqlConfig(MysqlConfig):
+    sqlfiledir:str
 
 class BackupConfig(ConfigBase):
 
@@ -99,10 +102,9 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     backup_sql_file:str
     mysql_software_path:str
 
-def init_mysqlconfig(**kw):
+def init_mysqlconfig(mysqlconfig):
     global CONFIG
-    mysqlconfig = MysqlConfig()
-    if not kw:
+    if not mysqlconfig:
         mConfigParser = ConfigParser();
         mConfigParser.read(path.join(path.split(__file__)[0],'config.ini'),'utf-8')
         kw = {}
@@ -111,11 +113,11 @@ def init_mysqlconfig(**kw):
     try:
         if not CONFIG.get(MYSQL_CATEGORY):
             CONFIG[MYSQL_CATEGORY] = {}
-        CONFIG[MYSQL_CATEGORY]['host'] = mysqlconfig.host = kw['host']
-        CONFIG[MYSQL_CATEGORY]['port'] = mysqlconfig.port = kw['port']
-        CONFIG[MYSQL_CATEGORY]['user'] = mysqlconfig.user = kw['user']
-        CONFIG[MYSQL_CATEGORY]['password'] = mysqlconfig.password = kw['password']
-        CONFIG[MYSQL_CATEGORY]['database'] = mysqlconfig.database = kw['database']
+        CONFIG[MYSQL_CATEGORY]['host'] = mysqlconfig.host
+        CONFIG[MYSQL_CATEGORY]['port'] = mysqlconfig.port
+        CONFIG[MYSQL_CATEGORY]['user'] = mysqlconfig.user
+        CONFIG[MYSQL_CATEGORY]['password'] = mysqlconfig.password
+        CONFIG[MYSQL_CATEGORY]['database'] = mysqlconfig.database
     except KeyError as e:
         log.error("set mysql config failed!")
         del CONFIG[MYSQL_CATEGORY]

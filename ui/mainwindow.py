@@ -14,7 +14,7 @@ from public_module import config
 
 import log
 from public_module.config import init_mysqlconfig, checkConfigForMysqlCreateDB, setSQLFileDirectory, \
-    checkGeneralConfigForMysql, MysqlBackupConfig, updateBackConfig
+    checkGeneralConfigForMysql, MysqlBackupConfig, updateBackConfig, MysqlConfig
 from public_module.utils import none_null_stringNone
 
 from ui.myThread import MyThread
@@ -50,6 +50,7 @@ class Ui_MainWindow(object):
         self.logCommandTabs = {}
         self._taskState={}
         self._translate = QtCore.QCoreApplication.translate
+        self.pubMysqlConfig = MysqlConfig()
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
@@ -103,80 +104,37 @@ class Ui_MainWindow(object):
             self.setEnable[key]()
 
     def _pubconfigButtonClick(self):
-        param = {'host':self.hostLineEdit.text().strip(),'port':self.portLineEdit.text().strip(),'user':self.userLineEdit.text().strip() \
-            ,'password':self.passwordLineEdit.text().strip(),'database':self.databaseLineEdit.text().strip()}
-        log.debug(param)
-        init_mysqlconfig(**param)
+        self.pubMysqlConfig.port = self.portLineEdit.text().strip()
+        self.pubMysqlConfig.host = self.hostLineEdit.text().strip()
+        self.pubMysqlConfig.database = self.databaseLineEdit.text().strip()
+        self.pubMysqlConfig.password = self.passwordLineEdit.text().strip()
+        self.pubMysqlConfig.user = self.userLineEdit.text().strip()
+        init_mysqlconfig(self.pubMysqlConfig)
         self._checkButtonEnable()
 
-    def _setupMysqlPubPannel(self):
-        self.pubConfigGridLayout = QtWidgets.QGridLayout(self.mysqlQWidget)
-        self.formLayoutWidget = QtWidgets.QWidget(self.mysqlQWidget)
-        self.formLayoutWidget.setGeometry(QtCore.QRect(0, 0, 401, 181))
-        self.formLayoutWidget.setObjectName("formLayoutWidget")
-        self.pubConfigFormLayout = QtWidgets.QFormLayout(self.formLayoutWidget)
-        self.pubConfigFormLayout.setContentsMargins(0, 0, 0, 0)
-        self.pubConfigFormLayout.setObjectName("pubConfigFormLayout")
-        self.hostLabel = QtWidgets.QLabel(self.formLayoutWidget)
-        self.hostLabel.setObjectName("hostLabel")
-        self.pubConfigFormLayout.setWidget(1, QtWidgets.QFormLayout.LabelRole, self.hostLabel)
-        self.hostLineEdit = QtWidgets.QLineEdit(self.formLayoutWidget)
-        self.hostLineEdit.setObjectName("hostLineEdit")
-        self.pubConfigFormLayout.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.hostLineEdit)
-        self.portLabel = QtWidgets.QLabel(self.formLayoutWidget)
-        self.portLabel.setObjectName("portLabel")
-        self.pubConfigFormLayout.setWidget(2, QtWidgets.QFormLayout.LabelRole, self.portLabel)
-        self.portLineEdit = QtWidgets.QLineEdit(self.formLayoutWidget)
-        self.portLineEdit.setObjectName("portLineEdit")
-        self.pubConfigFormLayout.setWidget(2, QtWidgets.QFormLayout.FieldRole, self.portLineEdit)
-        self.userLabel = QtWidgets.QLabel(self.formLayoutWidget)
-        self.userLabel.setObjectName("userLabel")
-        self.pubConfigFormLayout.setWidget(3, QtWidgets.QFormLayout.LabelRole, self.userLabel)
-        self.userLineEdit = QtWidgets.QLineEdit(self.formLayoutWidget)
-        self.userLineEdit.setObjectName("userLineEdit")
-        self.pubConfigFormLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.userLineEdit)
-        self.databaseLabel = QtWidgets.QLabel(self.formLayoutWidget)
-        self.databaseLabel.setObjectName("databaseLabel")
-        self.pubConfigFormLayout.setWidget(4, QtWidgets.QFormLayout.LabelRole, self.databaseLabel)
-        self.databaseLineEdit = QtWidgets.QLineEdit(self.formLayoutWidget)
-        self.databaseLineEdit.setObjectName("databaseLineEdit")
-        self.pubConfigFormLayout.setWidget(4, QtWidgets.QFormLayout.FieldRole, self.databaseLineEdit)
-        self.passwordLabel = QtWidgets.QLabel(self.formLayoutWidget)
-        self.passwordLabel.setObjectName("passwordLabel")
-        self.pubConfigFormLayout.setWidget(5, QtWidgets.QFormLayout.LabelRole, self.passwordLabel)
-        self.passwordLineEdit = QtWidgets.QLineEdit(self.formLayoutWidget)
-        self.passwordLineEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.passwordLineEdit.setClearButtonEnabled(False)
-        self.passwordLineEdit.setObjectName("passwordLineEdit")
-        self.passwordLineEdit.setEchoMode(QtWidgets.QLineEdit.Password)
-        self.pubConfigFormLayout.setWidget(5, QtWidgets.QFormLayout.FieldRole, self.passwordLineEdit)
-        self.commitPubConfigButton = QtWidgets.QPushButton(self.formLayoutWidget)
-        self.commitPubConfigButton.setObjectName("commitPubConfigButton")
+    def copyMyslqConfig(self,target):
+        target.port = self.pubMysqlConfig.port
+        target.host = self.pubMysqlConfig.host
+        target.database = self.pubMysqlConfig.database
+        target.password = self.pubMysqlConfig.password
+        target.user = self.pubMysqlConfig.user
 
-        self.commitPubConfigButton.clicked.connect(self._pubconfigButtonClick)
-        self.pubConfigFormLayout.setWidget(6, QtWidgets.QFormLayout.SpanningRole, self.commitPubConfigButton)
-        self.label = QtWidgets.QLabel(self.formLayoutWidget)
-        self.label.setEnabled(True)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
-        self.label.setSizePolicy(sizePolicy)
-        self.label.setAlignment(QtCore.Qt.AlignCenter)
-        self.label.setObjectName("label")
-        self.pubConfigFormLayout.setWidget(0, QtWidgets.QFormLayout.SpanningRole, self.label)
-        self.hostLineEdit.raise_()
-        self.portLabel.raise_()
-        self.portLineEdit.raise_()
-        self.userLabel.raise_()
-        self.userLineEdit.raise_()
-        self.databaseLabel.raise_()
-        self.databaseLineEdit.raise_()
-        self.passwordLabel.raise_()
-        self.passwordLineEdit.raise_()
-        self.hostLabel.raise_()
-        self.label.raise_()
-        self.commitPubConfigButton.raise_()
+    def _setupMysqlPubPannel(self):
+
+        self.pubConfigWidget = QtWidgets.QWidget(self.mysqlQWidget)
+        self.pubConfigWidget.setGeometry(QtCore.QRect(0, 0, 401, 181))
+        self.pubConfigGridLayout = QtWidgets.QGridLayout(self.pubConfigWidget)
+        self.hostLabel = QtWidgets.QLabel()
+        self.hostLineEdit = QtWidgets.QLineEdit()
+        self.portLabel = QtWidgets.QLabel()
+        self.portLineEdit = QtWidgets.QLineEdit()
+        self.userLabel = QtWidgets.QLabel()
+        self.userLineEdit = QtWidgets.QLineEdit()
+        self.databaseLabel = QtWidgets.QLabel()
+        self.databaseLineEdit = QtWidgets.QLineEdit()
+        self.passwordLabel = QtWidgets.QLabel()
+        self.passwordLineEdit = self._addEditLine('password',QtWidgets.QLineEdit.Password)
+        self.commitPubConfigButton = self._createButton('done',self._pubconfigButtonClick,True)
         self._initMysqlPubConfig()
 
 
@@ -236,15 +194,6 @@ class Ui_MainWindow(object):
         button.setFixedSize(120,40)
         return button
 
-    def _createTextEdit(self,editable:bool):
-        dirLineEdit = QLineEdit()
-        dirLineEdit.setEnabled(True)
-        dirLineEdit.setUpdatesEnabled(editable)
-        return dirLineEdit
-
-
-
-
     def _getSQLFileDir(self):
         directory = QFileDialog.getExistingDirectory(self, "Find Files", QDir.currentPath())
         self.sqlFileDirLineText.setText(directory)
@@ -287,6 +236,7 @@ class Ui_MainWindow(object):
 
     def _launchCreateDB(self):
         log.debug('begin create database')
+
         self._launchTask(execute_createDB,MYSQL_CREATE_DB)
 
 

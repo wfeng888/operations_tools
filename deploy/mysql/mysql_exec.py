@@ -1,5 +1,6 @@
 import log
-from public_module.config import getConfig, MYSQL_CATEGORY, MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG, MYSQL_GENERAL_CONFIG
+from public_module.config import getConfig, MYSQL_CATEGORY, MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG, MYSQL_GENERAL_CONFIG, \
+     CreateMysqlConfig
 from deploy.until import list_sqlfile_new
 from deploy.mysql import SimpleDeploy
 from deploy.mysql.DataSource import getDS
@@ -7,13 +8,13 @@ from deploy.mysql.DBUtils import formatErrorMsg, isDBExists, safe_close
 
 SIMPLE_DEPLOY,PARALLEL_DEPLOY = range(2)
 
-def execute_createDB(mode=SIMPLE_DEPLOY):
+def execute_createDB(config:CreateMysqlConfig,mode=SIMPLE_DEPLOY):
 
     if mode == SIMPLE_DEPLOY:
         log.info('start looking for sqlfile')
-        sqlfiles,num = list_sqlfile_new(getConfig()[MYSQL_CATEGORY][MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG])
+        sqlfiles,num = list_sqlfile_new(config.sqlfiledir)
         log.info('has get all sorted sqlfile')
-        SimpleDeploy.exec_warp(sqlfiles,num)
+        SimpleDeploy.exec_warp(config,sqlfiles,num)
         log.info('finished create db ')
 
 
