@@ -12,7 +12,8 @@ from deploy.mysql.Exception import ParamNotMatchException
 import log
 from deploy.mysql.DBUtils import formatErrorMsg
 from deploy.until import safe_doing
-from public_module.config import getConfig, MYSQL_CATEGORY
+from public_module.config import getConfig, MYSQL_CONFIG
+
 
 def get_key(*args,**kwargs):
     if args:
@@ -128,7 +129,7 @@ class MysqlPooledDataSource(AbstractDataSource):
 
 def getDS(*args,**kwargs):
     if not ( args or kwargs ):
-        return DBUtilPooledDBDataSource.get_ds(**(getConfig()[MYSQL_CATEGORY]))
+        return DBUtilPooledDBDataSource.get_ds(*(MYSQL_CONFIG.user,MYSQL_CONFIG.password,MYSQL_CONFIG.host,MYSQL_CONFIG.port,MYSQL_CONFIG.database))
     return DBUtilPooledDBDataSource.get_ds(*args,**kwargs)
 
 def destroyDS():

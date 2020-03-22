@@ -1,19 +1,9 @@
-import os
 import sys
 from configparser import ConfigParser
 from os import path
 
 from deploy.fields import FieldMeta
-import log
 from public_module.global_vars import  ThreadSafeHouse
-
-MYSQL_CATEGORY = 'mysql_pub'
-MYSQL_BACKUP_CATEGORY = 'mysql_backup'
-MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG = 'sqldirectory'
-MYSQL_GENERAL_CONFIG = ('host','port','user','password','database')
-MYSQL_CREATEDB_CONFIG = list()
-MYSQL_CREATEDB_CONFIG.extend(MYSQL_GENERAL_CONFIG)
-MYSQL_CREATEDB_CONFIG.append(MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG)
 
 
 class ConfigBase(object,metaclass=FieldMeta):
@@ -21,6 +11,32 @@ class ConfigBase(object,metaclass=FieldMeta):
     port:int
     user:str
     password:str
+
+    def __repr__(self):
+        vs = {}
+        for k in self._attribute_names:
+            if k.find('password') < 0:
+                vs[k] = getattr(self,k)
+        return vs.__repr__()
+
+    def copy(self,target=None):
+        cls = self.__class__
+        if not target:
+            target = cls()
+        for k in self._attribute_names:
+            setattr(target,k,getattr(self,k,None))
+        return target
+
+    def update(self,source):
+        if source:
+            for k in (set(self._attribute_names) & set(source._attribute_names)):
+                setattr(self,k,getattr(source,k,None))
+
+    def fieldsNotNull(self):
+        for k in self._attribute_names:
+            if not getattr(self,k,None):
+                return False
+        return True
 
     def resetFields(self):
         for k in dir(self.__class__):
@@ -36,6 +52,7 @@ class ConfigBase(object,metaclass=FieldMeta):
 
 class MysqlConfig(ConfigBase):
     database:str
+    logfiledir:str
 
 class CreateMysqlConfig(MysqlConfig):
     sqlfiledir:str
@@ -72,23 +89,7 @@ class BackupConfig(ConfigBase):
     backup_software_path:str
     os_platform:str = sys.platform
 
-    def check_backupconfig(self):
-        return True
-        if not (self.check_enum('backup_mode') and self.check_enum('operate') ):
-            return False
-        if self.backup_mode in ('logic'):
-            if not self.backup_sql_file:
-                return False
-        if self.backup_mode not in ('logic') and not self.defaults_file :
-            return False
-        if not (self.socket_file or self.port):
-            return False
-
-        if self.remote_host and not( self.ssh_password and self.ssh_port and self.ssh_user):
-            return False
-
 class MysqlBackupConfig(MysqlConfig,BackupConfig):
-
     _CONS_BACKUP_SOFTWARE_XTRABACKUP = 'xtrabackup'
     _CONS_BACKUP_SOFTWARE_MYSQLBACKUP = 'mysqlbackup'
     _CONS_BACKUP_SOFTWARE_MYSQL = 'mysql'
@@ -102,31 +103,6 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     backup_sql_file:str
     mysql_software_path:str
 
-def init_mysqlconfig(mysqlconfig):
-    global CONFIG
-    if not mysqlconfig:
-        mConfigParser = ConfigParser();
-        mConfigParser.read(path.join(path.split(__file__)[0],'config.ini'),'utf-8')
-        kw = {}
-        for k,v in mConfigParser.items(MYSQL_CATEGORY):
-            kw[k] = v
-    try:
-        if not CONFIG.get(MYSQL_CATEGORY):
-            CONFIG[MYSQL_CATEGORY] = {}
-        CONFIG[MYSQL_CATEGORY]['host'] = mysqlconfig.host
-        CONFIG[MYSQL_CATEGORY]['port'] = mysqlconfig.port
-        CONFIG[MYSQL_CATEGORY]['user'] = mysqlconfig.user
-        CONFIG[MYSQL_CATEGORY]['password'] = mysqlconfig.password
-        CONFIG[MYSQL_CATEGORY]['database'] = mysqlconfig.database
-    except KeyError as e:
-        log.error("set mysql config failed!")
-        del CONFIG[MYSQL_CATEGORY]
-
-def setSQLFileDirectory(dir):
-    global CONFIG
-    CONFIG[MYSQL_CATEGORY][MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG] = dir
-
-
 def _checkEqual(source,target):
     try:
         for item in target:
@@ -136,59 +112,44 @@ def _checkEqual(source,target):
         return False
     return True
 
-def checkConfigForMysqlCreateDB():
-    global CONFIG
-    return _checkEqual(CONFIG[MYSQL_CATEGORY],MYSQL_CREATEDB_CONFIG)
-
-
-def checkGeneralConfigForMysql():
-    global CONFIG
-    return _checkEqual(CONFIG[MYSQL_CATEGORY],MYSQL_GENERAL_CONFIG)
-
-
-
-
-def getMysqlHost():
-    return CONFIG[MYSQL_CATEGORY].get('host')
-
-def getMysqlPort():
-    return CONFIG[MYSQL_CATEGORY].get('port')
-
-def getMysqlUser():
-    return CONFIG[MYSQL_CATEGORY].get('user')
-
-def getMysqlDatabase():
-    return CONFIG[MYSQL_CATEGORY].get('database')
-
-def getMysqlPassword():
-    return CONFIG[MYSQL_CATEGORY].get('password')
-
 def getConfig():
-    _config =  threadSafeConfig.get()
-    return _config if _config else CONFIG
+    _config =  threadSafeMysqlConfig.get()
+    return _config
 
-CONFIG = {}
-init_mysqlconfig()
+def updateMysqlConfig(backupconfig:MysqlBackupConfig):
+    return MYSQL_CONFIG.copy(backupconfig)
 
+def initMysqlConfigFromConfigFile():
+    config = MysqlConfig()
+    cparser = ConfigParser()
+    cparser.read(path.join(path.split(__file__)[0],'config.ini'))
+    config.user = cparser.get('mysql','user')
+    config.password = cparser.get('mysql','password')
+    config.host = cparser.get('mysql','host')
+    config.port = cparser.get('mysql','port')
+    config.database = cparser.get('mysql','database')
+    return config
 
+def initMysqlConfig(mysqlconfig:MysqlConfig):
+    if mysqlconfig:
+        MYSQL_CONFIG.update(mysqlconfig)
 
-def updateBackConfig(backupconfig:BackupConfig):
-    global CONFIG
-    backconfig_keys = [k for k in dir(BackupConfig) if not k.startswith('_') and not callable(getattr(backupconfig,k)) ]
-    if CONFIG.get(MYSQL_CATEGORY,'None'):
-        for k in CONFIG[MYSQL_CATEGORY].keys():
-            if k in backconfig_keys:
-                setattr(backupconfig,k,CONFIG[MYSQL_CATEGORY][k])
-    if not backupconfig.check_backupconfig():
-        return False
-    CONFIG[MYSQL_BACKUP_CATEGORY] = {}
-    for k in dir(BackupConfig):
-        if not k.startswith('_') and not callable(getattr(backupconfig,k)):
-            CONFIG[MYSQL_BACKUP_CATEGORY][k] = getattr(backupconfig,k)
-    return True
+def checkConfigForMysqlCreateDB():
+    global CREATE_MYSQL_CONFIG
+    CREATE_MYSQL_CONFIG.update(MYSQL_CONFIG)
+    return CREATE_MYSQL_CONFIG.database and CREATE_MYSQL_CONFIG.user and CREATE_MYSQL_CONFIG.port and CREATE_MYSQL_CONFIG.host and CREATE_MYSQL_CONFIG.password and CREATE_MYSQL_CONFIG.sqlfiledir
 
+def checkConfigForMysqlAlive():
+    global MYSQL_CONFIG
+    return MYSQL_CONFIG.database and MYSQL_CONFIG.user and MYSQL_CONFIG.port and MYSQL_CONFIG.host and MYSQL_CONFIG.password
 
-threadSafeConfig = ThreadSafeHouse(CONFIG)
+MYSQL_CONFIG=initMysqlConfigFromConfigFile()
+CREATE_MYSQL_CONFIG = CreateMysqlConfig()
+BACKUP_MYSQL_CONFIG = MysqlBackupConfig()
+
+threadSafeMysqlConfig = ThreadSafeHouse(MYSQL_CONFIG)
+threadSafeCreateMysqlConfig = ThreadSafeHouse(CREATE_MYSQL_CONFIG)
+threadSafeBackupMysqlConfig = ThreadSafeHouse(BACKUP_MYSQL_CONFIG)
 
 
 

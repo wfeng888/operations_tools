@@ -1,6 +1,9 @@
+import traceback
+
+from mysql.connector import InterfaceError
+
 import log
-from public_module.config import getConfig, MYSQL_CATEGORY, MYSQL_CREATEDB_SQL_DIRECTORY_CONFIG, MYSQL_GENERAL_CONFIG, \
-     CreateMysqlConfig
+from public_module.config import getConfig, CreateMysqlConfig, MysqlConfig
 from deploy.until import list_sqlfile_new
 from deploy.mysql import SimpleDeploy
 from deploy.mysql.DataSource import getDS
@@ -20,14 +23,18 @@ def execute_createDB(config:CreateMysqlConfig,mode=SIMPLE_DEPLOY):
 
 
 
-def isInstanceActive():
-    _config = getConfig()
-    log.info('check mysql service for {}'.format([k+'='+_config[MYSQL_CATEGORY][k] for k in MYSQL_GENERAL_CONFIG if k != 'password']))
+def isInstanceActive(config:MysqlConfig):
+    log.info('check mysql service for {}'.format(config))
     try:
-        ds = getDS()
+        ds = None
+        conn = None
+        ds = getDS(*(config.user,config.password,config.host,config.port,config.database))
         conn = ds.get_conn()
         return isDBExists(conn,'mysql')
-    except BaseException as e:
+    except InterfaceError as e:
+        log.error('connect to {} failed !'.format(config))
         log.error(formatErrorMsg(e))
+    except BaseException as e:
+        log.error(traceback.format_exc())
     finally:
         safe_close(conn)

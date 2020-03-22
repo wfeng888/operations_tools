@@ -48,7 +48,7 @@ class ThreadSafeHouse(object):
 
     def add(self):
         curThreadid = getCurrentThreadID()
-        self._store[curThreadid] = copy.deepcopy(self._mouse)
+        self._store[curThreadid] = self._mouse.copy()
 
     def get(self):
         return self._store.get(getCurrentThreadID())

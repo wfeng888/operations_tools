@@ -215,7 +215,7 @@ class MysqlBackup(BackupBase):
             cmd = 'cd %s;tar -czpvf %s  %s'%(s[0],s[2] + '.tar.gz',s[2])
             stat,_ = self._sshobject.execute_cmd(cmd)
             if stat == ConnectionBase.SHELL_SUCCESS:
-                self._sshobject.transferFileFromRemote(self.target_dir[1]+'tar.gz',self.saved_local_path)
+                self._sshobject.transferFileFromRemote(self.target_dir[1]+'tar.gz',path_join(self.saved_local_path,s[2] + '.tar.gz'))
         return paramf_stat
 
     def _checkBackupOk(self,logdir):

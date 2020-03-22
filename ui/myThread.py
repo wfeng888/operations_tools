@@ -5,7 +5,7 @@ from PyQt5.QtCore import QThread, QMutexLocker, pyqtSignal, QMutex
 import log
 from deploy.mysql import BackupException
 from public_module.global_vars import addNotifier,removeNotifier
-from public_module.config import threadSafeConfig
+from public_module.config import threadSafeMysqlConfig
 
 
 class NotifyCombine(object):
@@ -47,7 +47,6 @@ class MyThread(QThread):
         log.ExceptionHook()
     def run(self):
         try:
-            threadSafeConfig.add()
             self.beginTask.emit(self._id)
             # locker = QMutexLocker(QMutex())
             addNotifier(self._notifier)
@@ -65,7 +64,6 @@ class MyThread(QThread):
             raise e
         finally:
             self.finishTask.emit(self._id,self._runningResult,self._taskresult)
-            threadSafeConfig.remove()
 
     def transformResult(self,result):
         if result == None:
