@@ -1,6 +1,10 @@
 import threading
-from public_module.utils import getCurrentThreadID
+
 import copy
+
+from PyQt5.QtCore import QThread
+
+getCurrentThreadID = QThread.currentThread
 
 notifiers = dict()
 notifierLock = threading.Lock()
@@ -40,19 +44,5 @@ def getNotifier():
     return notifiers.get(curThreadid,None)
 
 
-class ThreadSafeHouse(object):
 
-    def __init__(self,mouse):
-        self._store = {}
-        self._mouse = mouse
-
-    def add(self):
-        curThreadid = getCurrentThreadID()
-        self._store[curThreadid] = self._mouse.copy()
-
-    def get(self):
-        return self._store.get(getCurrentThreadID())
-
-    def remove(self):
-        self._store.pop(getCurrentThreadID(),None)
 

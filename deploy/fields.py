@@ -1,31 +1,34 @@
 from functools import  partial
 
+from public_module.utils import none_null_stringNone
 
-def getx(cname,self):
-    return self._attributes.get(cname,None)
 
-def setx(cname,self, value):
-    cls = self.__class__.__annotations__[cname]
+def getx(cname,iself):
+    return iself._attributes.get(cname,None)
+
+def setx(cname,cself, value):
+    cls = cself.__class__.__annotations__[cname]
     if value == None:
-        self._attributes[cname] = None
+        cself._attributes[cname] = None
         return
     if isinstance(cls,int) or cls == int:
-        self._attributes[cname] = int(value)
+        if not none_null_stringNone(value):
+            cself._attributes[cname] = int(value)
     elif isinstance(cls,(list,tuple)) or cls in (list,tuple):
         if not isinstance(value,(list,tuple)):
-            self._attributes[cname] = value.split(',')
+            cself._attributes[cname] = value.split(',')
         else:
-            self._attributes[cname] = value
+            cself._attributes[cname] = value
     elif isinstance(cls,dict) or cls == dict:
         if not isinstance(value,dict):
             tmplist = value.split(',')
-            self._attributes[cname][tmplist.split(':')[0]] = tmplist.split(':')[1]
+            cself._attributes[cname][tmplist.split(':')[0]] = tmplist.split(':')[1]
         else:
-            self._attributes[cname] = value
+            cself._attributes[cname] = value
     elif isinstance(cls,bool) or cls == bool:
-        self._attributes[cname] = True if value and str(value).upper() == 'TRUE' else False
+        cself._attributes[cname] = True if value and str(value).upper() == 'TRUE' else False
     else:
-        self._attributes[cname] = value
+        cself._attributes[cname] = value
 
 
 class FieldMeta(type):
@@ -40,7 +43,7 @@ class FieldMeta(type):
                         dicts['_attribute_names'].update(parent.__dict__.get('_attribute_names'))
                     _addBaseAnnotations(parent.__bases__)
         names = []
-        dicts['_attributes'] = {}
+        # dicts['_attributes'] = dict()
         dicts['_attribute_names'] = set()
         if not dicts.get('__annotations__',None):
             dicts['__annotations__'] = {}

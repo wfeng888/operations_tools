@@ -5,7 +5,7 @@ import re
 from re import RegexFlag
 
 # stat_type = {'DDL':1,'DDLS':1,'TABLE':2,'TABLES':2,'VIEW':3,'VIEWS':3,'PROCEDURE':2,'PROCEDURES':2,'FUNCTION':3,'FUNCTIONS':3,'DML':99,'DMLS':99}
-
+import log
 
 REGEX = [
     (r'(\s)*([0-9]+(\.)*)+(\s)*',lambda x: [int(i) for i in x.split('.')]),
@@ -127,4 +127,4 @@ def safe_doing(func,*args):
     try:
         func(*args)
     except BaseException as e:
-        print(traceback.format_exc())
+        log.error(traceback.format_exc())

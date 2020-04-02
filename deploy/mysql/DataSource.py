@@ -36,7 +36,6 @@ class AbstractDataSource(metaclass=ABCMeta):
             elif kwargs:
                 for i in ('user','password','host','port','database'):
                     kwargs.get(i)
-                # self.set_class_attr((kwargs['user'], kwargs['password'], kwargs['host'], kwargs['port'],kwargs['database']))
                 self._conn_params = copy.deepcopy(kwargs)
                 self._closed = True
         except KeyError as err:

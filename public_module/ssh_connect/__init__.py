@@ -74,7 +74,7 @@ class ConnectionBase(ContextManager,metaclass=ABCMeta):
             self.open_sftp().get(remotepath,localpath)
             return True
         except IOError as e:
-            log.error('transfer local file {} to remote {} failed.'.format(localpath,remotepath))
+            log.error('transfer to local file {} from remote {} failed.'.format(remotepath,localpath))
             log.error(traceback.format_exc())
             return False
 

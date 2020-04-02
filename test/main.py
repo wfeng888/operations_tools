@@ -12,6 +12,13 @@
 # from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
 #
 #
+# import os
+# from pathlib import Path
+#
+# from deploy.until import _sort, valid
+from public_module.config import MysqlBackupConfig
+#
+#
 # def list_sqlfile_new(filepath):
 #     base = Path(filepath)
 #     if base.exists():
@@ -40,8 +47,8 @@
 #                 return filepath,1
 #     return None,0
 #
-#
-#
+
+
 
 
 # def test_paramiko():
@@ -241,26 +248,32 @@ from configparser import ConfigParser
 #     s = r.group(1)
 #     print(s)
 
-def test_parser_set():
-    mConfigParser = ConfigParser();
-    mConfigParser.read('D:/tmp/my.cnf.template','utf-8')
-    print(mConfigParser.get('client','port',fallback=None))
-    mConfigParser.set('client','port','3306')
-    print(mConfigParser.get('client','port',fallback=None))
-
-def test_item():
-    for k,v in ((1,2),(3,4)):
-        print(k)
-        print(v)
-
-def test_list():
-    l = [1,2,3]
-    s = ('%s'%l).replace('[').replace(']')
-    print(s)
-    print(type(s))
+# def test_parser_set():
+#     mConfigParser = ConfigParser();
+#     mConfigParser.read('D:/tmp/my.cnf.template','utf-8')
+#     print(mConfigParser.get('client','port',fallback=None))
+#     mConfigParser.set('client','port','3306')
+#     print(mConfigParser.get('client','port',fallback=None))
+#
+# def test_item():
+#     for k,v in ((1,2),(3,4)):
+#         print(k)
+#         print(v)
+#
+# def test_list():
+#     l = [1,2,3]
+#     s = ('%s'%l).replace('[').replace(']')
+#     print(s)
+#     print(type(s))
 
 if '__main__' == __name__:
-    test_list()
+    m1 = MysqlBackupConfig()
+    m2 = MysqlBackupConfig()
+    m1.port=3306
+    m2.port=3578
+    print(m1.port)
+    print(m2.port)
+    # test_list()
     # test_item()
     # test_parser_set()
     # test_re()

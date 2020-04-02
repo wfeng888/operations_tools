@@ -5,7 +5,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir, Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QPushButton, QFileDialog, QCommandLinkButton, QLabel, QTextEdit, QSizePolicy, \
-    QButtonGroup, QSplitter, QVBoxLayout, QSpacerItem, QStyle
+    QButtonGroup, QSplitter, QVBoxLayout, QSpacerItem, QStyle, QMessageBox
 
 from deploy.mysql.backup import  backup_restore
 from deploy.mysql.mysql_exec import execute_createDB, isInstanceActive
@@ -13,8 +13,7 @@ from deploy.mysql.mysql_exec import execute_createDB, isInstanceActive
 from public_module import config
 
 import log
-from public_module.config import MysqlBackupConfig, MysqlConfig, MYSQL_CONFIG, updateMysqlConfig, initMysqlConfig, \
-    CREATE_MYSQL_CONFIG
+from public_module.config import MysqlBackupConfig, MysqlConfig, MYSQL_CONFIG, updateMysqlConfig, initMysqlConfig
 from public_module.utils import none_null_stringNone
 
 from ui.myThread import MyThread
@@ -35,10 +34,9 @@ BACKUP_OPER_MAP = {
     RADIO_MYSQL_BACKUP:MysqlBackupConfig._CONS_OPERATE_BACKUP,
     RADIO_MYSQL_RESTORE:MysqlBackupConfig._CONS_OPERATE_RESTORE
 }
-
 BUTTON_DEAL_MAP = {
     BUTTON_SAVE_TO_LOCAL:lambda obj,text:obj._mysqlBackupLocalPathEditLine.setText(text),
-    BUTTON_SQLFILE_DIR:lambda text:setattr(CREATE_MYSQL_CONFIG,'sqlfiledir',text)
+    BUTTON_SQLFILE_DIR:lambda text:setattr(config.CREATE_MYSQL_CONFIG,'sqlfiledir',text)
 }
 
 
@@ -48,6 +46,7 @@ class Ui_MainWindow(object):
         self.logCommandTabs = {}
         self._taskState={}
         self._translate = QtCore.QCoreApplication.translate
+        self._radio_state = {}
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
@@ -63,8 +62,8 @@ class Ui_MainWindow(object):
             MYSQL_CREATE_DB:self._checkMysqlCreateDBButton,
             MYSQL_CHECK_ALIVE:self._checkMysqlServiceAliveButton,
             MYSQL_BACKUP:self._checkMysqlBackupButton,
-            MYSQL_RESTORE:self._checkMysqlRestoreButton,
-            MYSQL_CMD:self._checkMysqlCommandButton
+            MYSQL_RESTORE:self._checkMysqlBackupButton,
+            MYSQL_CMD:self._checkMysqlBackupButton
         }
 
     def _isTaskBusy(self,id):
@@ -83,13 +82,12 @@ class Ui_MainWindow(object):
             self.checkMysqlAliveButton.setEnabled(False)
 
     def _checkMysqlBackupButton(self):
-        pass
+        if  self._isTaskBusy(MYSQL_RESTORE) or self._isTaskBusy(MYSQL_BACKUP):
+            self.launchBackupMysqlButton.setEnabled(False)
+        else:
+            self.launchBackupMysqlButton.setEnabled(True)
 
-    def _checkMysqlRestoreButton(self):
-        pass
 
-    def _checkMysqlCommandButton(self):
-        pass
 
     def _checkButtonEnable(self,id=None):
         if id != None:
@@ -123,8 +121,8 @@ class Ui_MainWindow(object):
         self.pubConfigWidget = QtWidgets.QWidget()
         self.pubConfigWidget.setFixedHeight(220)
         self.pubConfigWidget.setContentsMargins(0,0,0,0)
-        self.pubConfigGridLayout = QtWidgets.QGridLayout()
-        self.pubConfigGridLayout.setContentsMargins(0,0,0,0)
+        pubConfigGridLayout = QtWidgets.QGridLayout()
+        pubConfigGridLayout.setContentsMargins(0,0,0,0)
         self.pubConfigLabel = QLabel()
         self.pubConfigLabel.setAlignment(Qt.AlignCenter)
         self.hostLabel = self._addLabel()
@@ -136,27 +134,30 @@ class Ui_MainWindow(object):
         self.databaseLabel = self._addLabel()
         self.databaseLineEdit = QtWidgets.QLineEdit()
         self.passwordLabel = self._addLabel()
-        self.passwordLineEdit = self._addEditLine('password',QtWidgets.QLineEdit.Password)
-        self.logdDirectoryLabel = self._addLabel("logDir:")
-        self.findLogDirButton = self._createButton('Browers',None,fixwidth=80)
-        self.logDirLineText = self._addEditLine()
+        self.passwordLineEdit = self._addEditLine('password',QtWidgets.QLineEdit.Password,enabled=True)
+        # self.logdDirectoryLabel = self._addLabel("日志保存目录:")
+        # self.findLogDirButton = self._createButton('浏览',None,fixwidth=80)
+        # self.logDirLineText = self._addEditLine(enabled=True)
         self.commitPubConfigButton = self._createButton('done',self._pubconfigButtonClick,True)
-        self.pubConfigGridLayout.addWidget(self.pubConfigLabel,0,0,1,4)
-        self.pubConfigGridLayout.addWidget(self.hostLabel,1,0)
-        self.pubConfigGridLayout.addWidget(self.hostLineEdit,1,1,1,3)
-        self.pubConfigGridLayout.addWidget(self.portLabel,2,0)
-        self.pubConfigGridLayout.addWidget(self.portLineEdit,2,1,1,3)
-        self.pubConfigGridLayout.addWidget(self.userLabel,3,0)
-        self.pubConfigGridLayout.addWidget(self.userLineEdit,3,1,1,3)
-        self.pubConfigGridLayout.addWidget(self.databaseLabel,4,0)
-        self.pubConfigGridLayout.addWidget(self.databaseLineEdit,4,1,1,3)
-        self.pubConfigGridLayout.addWidget(self.passwordLabel,5,0)
-        self.pubConfigGridLayout.addWidget(self.passwordLineEdit,5,1,1,3)
-        self.pubConfigGridLayout.addWidget(self.logdDirectoryLabel,6,0)
-        self.pubConfigGridLayout.addWidget(self.logDirLineText,6,1,1,2)
-        self.pubConfigGridLayout.addWidget(self.findLogDirButton,6,3)
-        self.pubConfigGridLayout.addWidget(self.commitPubConfigButton,7,0,1,4)
-        self.pubConfigWidget.setLayout(self.pubConfigGridLayout)
+        pubConfigGridLayout.addWidget(self.pubConfigLabel,0,0,2,4)
+        pubConfigGridLayout.addWidget(self.hostLabel,2,0)
+        pubConfigGridLayout.addWidget(self.hostLineEdit,2,1,1,3)
+        pubConfigGridLayout.addWidget(self.portLabel,3,0)
+        pubConfigGridLayout.addWidget(self.portLineEdit,3,1,1,3)
+        pubConfigGridLayout.addWidget(self.userLabel,4,0)
+        pubConfigGridLayout.addWidget(self.userLineEdit,4,1,1,3)
+        pubConfigGridLayout.addWidget(self.databaseLabel,5,0)
+        pubConfigGridLayout.addWidget(self.databaseLineEdit,5,1,1,3)
+        pubConfigGridLayout.addWidget(self.passwordLabel,6,0)
+        pubConfigGridLayout.addWidget(self.passwordLineEdit,6,1,1,3)
+        # self.pubConfigGridLayout.addWidget(self.logdDirectoryLabel,6,0)
+        # self.pubConfigGridLayout.addWidget(self.logDirLineText,6,1,1,2)
+        # self.pubConfigGridLayout.addWidget(self.findLogDirButton,6,3)
+        pubConfigGridLayout.addWidget(self.commitPubConfigButton,7,0,1,4)
+        vspacer = QSpacerItem(10,10,QSizePolicy.Minimum,QSizePolicy.Expanding)
+        pubConfigGridLayout.addItem(vspacer)
+        pubConfigGridLayout.setVerticalSpacing(13)
+        self.pubConfigWidget.setLayout(pubConfigGridLayout)
         self._initMysqlPubConfig()
 
 
@@ -166,6 +167,34 @@ class Ui_MainWindow(object):
         self.hostLineEdit.setText(MYSQL_CONFIG.host)
         self.databaseLineEdit.setText(MYSQL_CONFIG.database)
         self.passwordLineEdit.setText(MYSQL_CONFIG.password)
+
+    def _dealRadioToggled(self,id,checked):
+        self._radio_state[id]=checked
+        if id == RADIO_MYSQL_BACKUP_INCREMENT:
+            self._mysqlBackupIncrementalBaseDirEditLine.setEnabled(checked)
+        elif id == RADIO_MYSQL_BACKUP_FULL:
+            pass
+        elif id == RADIO_MYSQL_BACKUP_LOGIC:
+            pass
+        elif id == RADIO_MYSQL_RESTORE:
+            self._mysqlRestoreTargetDirEditLine.setEnabled(checked)
+            self._mysqlSoftwarePathEditLine.setEnabled(checked)
+        elif id == RADIO_MYSQL_BACKUP:
+            self._mysqlBackupToLocalCheckBox.setEnabled(checked)
+            if not checked:
+                self._mysqlBackupToLocalCheckBox.setChecked(checked)
+        if not (self._radio_state.get(RADIO_MYSQL_BACKUP_LOGIC,False) or self._radio_state.get(RADIO_MYSQL_RESTORE,False)):
+            self._mysqlBackupCompressCheckBox.setEnabled(True)
+        else:
+            self._mysqlBackupCompressCheckBox.setEnabled(False)
+
+
+    def _dealCheckboxCheckState(self,id,state):
+        if id == CHECKBOX_MYSQL_BACKUPCOMPRESS:
+            pass
+        if id == CHECKBOX_MYSQL_SAVE_LOCAL:
+            self._mysqlBackupLocalPathButton.setEnabled(True if state > 0 else False)
+            self._mysqlBackupLocalPathEditLine.setEnabled(True if state > 0 else False)
 
     def _createRadioButton(self,title,member,buttongroup=None,id=None,checked=False):
         radioButton = QtWidgets.QRadioButton()
@@ -181,27 +210,7 @@ class Ui_MainWindow(object):
                 buttongroup.addButton(radioButton)
         return radioButton
 
-    def _dealRadioToggled(self,id,checked):
-        if id == RADIO_MYSQL_BACKUP_INCREMENT:
-            self._mysqlBackupIncrementalBaseDirEditLine.setEnabled(checked)
-        elif id == RADIO_MYSQL_BACKUP_FULL:
-            pass
-        elif id == RADIO_MYSQL_BACKUP_LOGIC:
-            self._mysqlBackupCompressCheckBox.setEnabled(not checked)
-        elif id == RADIO_MYSQL_RESTORE:
-            self._mysqlRestoreTargetDirEditLine.setEnabled(checked)
-        elif id == RADIO_MYSQL_BACKUP:
-            pass
-
-    def _dealCheckboxCheckState(self,id,state):
-        if id == CHECKBOX_MYSQL_BACKUPCOMPRESS:
-            pass
-        if id == CHECKBOX_MYSQL_SAVE_LOCAL:
-            self._mysqlBackupLocalPathButton.setEnabled(True if state > 0 else False)
-            self._mysqlBackupLocalPathEditLine.setEnabled(True if state > 0 else False)
-
-
-    def _createButton(self, text, member,enabled=True,fixwidth=None):
+    def _createButton(self, text, member,enabled=True,fixwidth=None,visible=True):
         button = QPushButton(text)
         button.setEnabled(enabled)
         if member:
@@ -211,6 +220,7 @@ class Ui_MainWindow(object):
         else:
             button.setMinimumWidth(80)
             button.setSizePolicy(QSizePolicy.Minimum,QSizePolicy.Minimum)
+        button.setVisible(visible)
         return button
 
     def _createQCommandLinkButton(self,text,member,enabled=True):
@@ -221,16 +231,16 @@ class Ui_MainWindow(object):
         button.setFixedSize(120,40)
         return button
 
-    def _addCheckBox(self,title,checked=False,member=None):
+    def _addCheckBox(self,title,checked=False,member=None,enabled=False):
         checkBox = QtWidgets.QCheckBox(title)
         checkBox.setObjectName(title)
-        checkBox.setEnabled(True)
         checkBox.setChecked(checked)
         if member:
             checkBox.stateChanged.connect(member)
+        checkBox.setEnabled(enabled)
         return checkBox
 
-    def _addEditLine(self,title=None,echomode=None,text=None,editable=True,textChanged=None):
+    def _addEditLine(self,title=None,echomode=None,text=None,editable=True,textChanged=None,enabled=False):
         lineEdit = QtWidgets.QLineEdit()
         lineEdit.setFocusPolicy(QtCore.Qt.StrongFocus)
         lineEdit.setClearButtonEnabled(False)
@@ -245,6 +255,7 @@ class Ui_MainWindow(object):
             lineEdit.setText(text)
         if textChanged:
             lineEdit.textChanged.connect(textChanged)
+        lineEdit.setEnabled(enabled)
         return lineEdit
 
     def _addLabel(self,title=None,maxwidth=100):
@@ -252,7 +263,8 @@ class Ui_MainWindow(object):
         if title:
             label.setText(title)
         label.setMaximumWidth(maxwidth)
-        label.setSizePolicy(QSizePolicy.Maximum,QSizePolicy.Preferred)
+        label.setSizePolicy(QSizePolicy.Preferred,QSizePolicy.Preferred)
+        label.setWordWrap(True)
         return label
 
     def _createProgressBar(self,objname=None):
@@ -304,6 +316,8 @@ class Ui_MainWindow(object):
 
     def _launchCreateDB(self):
         log.debug('begin create database')
+        config.CREATE_MYSQL_CONFIG.log_statement = self.logStatementCheckBox.isChecked()
+        config.CREATE_MYSQL_CONFIG.ignore_error = self.ignoreErrorCheckBox.isChecked()
         _config = config.CREATE_MYSQL_CONFIG.copy()
         self._launchTask(execute_createDB,MYSQL_CREATE_DB,pargs=(_config,))
 
@@ -329,12 +343,17 @@ class Ui_MainWindow(object):
         _config.mysql_software_path = self._mysqlSoftwarePathEditLine.text().strip()
         if self._mysqlBackupCompressCheckBox.isChecked():
             _config.compress = True
-        if self._mysqlBackupToLocalCheckBox.isChecked() and none_null_stringNone(self._mysqlBackupLocalPathEditLine.text()):
+        if self._mysqlBackupToLocalCheckBox.isChecked() and not none_null_stringNone(self._mysqlBackupLocalPathEditLine.text()):
             _config.is_save_to_local = True
             _config.local_path = self._mysqlBackupLocalPathEditLine.text().strip()
         log.debug('updateBackConfig')
         if not updateMysqlConfig(_config):
             log.error('updateBackConfig failed , stop {}'.format(BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]))
+            return
+        _result,_msg = _config.checkConfig()
+        if not _result:
+            log.error(_msg)
+            QMessageBox.warning(self,'输入配置错误',_msg,QMessageBox.Yes,QMessageBox.Yes)
             return
         if _config.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP:
             self._launchBackupMysql(_config)
@@ -358,98 +377,88 @@ class Ui_MainWindow(object):
         self.backupMysqlQWidget = QtWidgets.QWidget()
         self.backupMysqlQWidget.setObjectName("backupMysqlQWidget")
         self.backupMysqlGridLayout = QtWidgets.QGridLayout()
-
         self._mysqlBackupOperButtonGroup = QButtonGroup(self.backupMysqlQWidget)
-        self._mysqlBackupRadio = self._createRadioButton('backup',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP,checked),self._mysqlBackupOperButtonGroup,RADIO_MYSQL_BACKUP,True)
-        self._mysqlRestoreRadio = self._createRadioButton('restore',lambda checked:self._dealRadioToggled(RADIO_MYSQL_RESTORE,checked),self._mysqlBackupOperButtonGroup,RADIO_MYSQL_RESTORE)
-
+        self._mysqlBackupRadio = self._createRadioButton('备份',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP,checked),self._mysqlBackupOperButtonGroup,RADIO_MYSQL_BACKUP)
+        self._mysqlRestoreRadio = self._createRadioButton('恢复',lambda checked:self._dealRadioToggled(RADIO_MYSQL_RESTORE,checked),self._mysqlBackupOperButtonGroup,RADIO_MYSQL_RESTORE)
         self._mysqlBackupModeButtonGroup = QButtonGroup(self.backupMysqlQWidget)
-        self._myqslBackupLogicRadio = self._createRadioButton('logic',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_LOGIC,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_LOGIC)
-        self._myqslBackupFullRadio = self._createRadioButton('full',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_FULL,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_FULL,True)
-        self._myqslBackupIncrementRadio = self._createRadioButton('increment',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_INCREMENT,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_INCREMENT)
-
-        self._mysqlBackupCompressCheckBox = self._addCheckBox('compress',True)
-        self._mysqlBackupToLocalCheckBox = self._addCheckBox('save local',True,lambda state:self._dealCheckboxCheckState(CHECKBOX_MYSQL_SAVE_LOCAL,state))
-        self._mysqlSSHUserLabel = self._addLabel("ssh user:")
-        self._mysqlSSHPasswordLabel = self._addLabel("ssh password:")
-        self._mysqlSSHPortLabel = self._addLabel("ssh port:")
-        self._mysqlSSHUserEditline = self._addEditLine("mysqlsshuser")
-        self._mysqlSSHUserEditline.setText('mysql')
-        self._mysqlSSHPasswordEditline = self._addEditLine("mysqlsshpassword",QtWidgets.QLineEdit.Password)
-        self._mysqlSSHPasswordEditline.setText('8845')
-        self._mysqlSSHPortEditline = self._addEditLine("mysqlsshport")
-        self._mysqlSSHPortEditline.setText('22')
-
-        self._mysqlBackupPathLabel = self._addLabel("backup path")
-        self._mysqlbackupPathEditLine = self._addEditLine('mysqlBackupPath')
-
-        self._mysqlBackupPathButton = self._createButton('browse',None,enabled=False)
-
-        self._mysqlBackupLocalPathLabel = self._addLabel("local save path")
+        self._myqslBackupLogicRadio = self._createRadioButton('逻辑备份',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_LOGIC,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_LOGIC)
+        self._myqslBackupFullRadio = self._createRadioButton('全量备份',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_FULL,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_FULL)
+        self._myqslBackupIncrementRadio = self._createRadioButton('增量备份',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_INCREMENT,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_INCREMENT)
+        self._mysqlBackupCompressCheckBox = self._addCheckBox('压缩',True)
+        self._mysqlBackupToLocalCheckBox = self._addCheckBox('保存到本地',False,lambda state:self._dealCheckboxCheckState(CHECKBOX_MYSQL_SAVE_LOCAL,state))
+        self._mysqlSSHUserLabel = self._addLabel("ssh用户:")
+        self._mysqlSSHPasswordLabel = self._addLabel("ssh密码:")
+        self._mysqlSSHPortLabel = self._addLabel("ssh端口:")
+        self._mysqlSSHUserEditline = self._addEditLine("mysqlsshuser",enabled=True)
+        self._mysqlSSHPasswordEditline = self._addEditLine("mysqlsshpassword",QtWidgets.QLineEdit.Password,enabled=True)
+        self._mysqlSSHPortEditline = self._addEditLine("mysqlsshport",enabled=True)
+        self._mysqlBackupPathLabel = self._addLabel("备份路径")
+        self._mysqlbackupPathEditLine = self._addEditLine('mysqlBackupPath',enabled=True)
+        self._mysqlBackupPathButton = self._createButton('浏览',None,enabled=False,visible=False)
+        self._mysqlBackupLocalPathLabel = self._addLabel("本地保存路径")
         self._mysqlBackupLocalPathEditLine = self._addEditLine('mysqlBackupLocalPath')
-        self._mysqlBackupLocalPathButton = self._createButton('browse',lambda :self._getFileDir(BUTTON_SAVE_TO_LOCAL,self._mysqlBackupLocalPathEditLine))
-
-        self._mysqlBackupIncrementalBaseDirLabel = self._addLabel("incremental base path")
+        self._mysqlBackupLocalPathButton = self._createButton('browse',lambda :self._getFileDir(self._mysqlBackupLocalPathEditLine,BUTTON_SAVE_TO_LOCAL),enabled=False)
+        self._mysqlBackupIncrementalBaseDirLabel = self._addLabel("增量备份基目录")
         self._mysqlBackupIncrementalBaseDirEditLine = self._addEditLine('mysqlBackupIncrementalBaseDir')
-        self._mysqlBackupIncrementalBaseDirButton = self._createButton('browse',None,enabled=False)
-
-        self._mysqlRestoreTargetDirLabel = self._addLabel("restore target path")
+        self._mysqlBackupIncrementalBaseDirButton = self._createButton('browse',None,enabled=False,visible=False)
+        self._mysqlRestoreTargetDirLabel = self._addLabel("恢复目标路径")
         self._mysqlRestoreTargetDirEditLine = self._addEditLine('mysqlRestoreTargetDirEditLine')
-        self._mysqlRestoreTargetDirButton = self._createButton('browse',None,enabled=False)
-
-        self._mysqlSoftwarePathLabel = self._addLabel("mysql software path")
+        self._mysqlRestoreTargetDirButton = self._createButton('浏览',None,enabled=False,visible=False)
+        self._mysqlSoftwarePathLabel = self._addLabel("Mysql软件路径")
         self._mysqlSoftwarePathEditLine = self._addEditLine('mysqlSoftwarePathEditLine')
-        self._mysqlSoftwarePathButton = self._createButton('browse',None,enabled=False)
-
+        self._mysqlSoftwarePathButton = self._createButton('browse',None,enabled=False,visible=False)
         self.launchBackupMysqlButton = self._createQCommandLinkButton('backup',self._mysqlCheckAndSetConfig,True)
-
-
-        self.backupMysqlGridLayout.addWidget(self._myqslBackupLogicRadio,0,0,1,3)
-        self.backupMysqlGridLayout.addWidget(self._myqslBackupFullRadio,0,1)
-        self.backupMysqlGridLayout.addWidget(self._myqslBackupIncrementRadio,0,2)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserLabel,1,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserEditline,1,1,1,2)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortLabel,2,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortEditline,2,1,1,2)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordLabel,3,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordEditline,3,1,1,2)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupCompressCheckBox,4,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupToLocalCheckBox,4,1)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathLabel,5,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlbackupPathEditLine,5,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathButton,5,4)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathLabel,6,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathEditLine,6,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathButton,6,4)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirLabel,7,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirEditLine,7,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirButton,7,4)
-        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,8,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRadio,9,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreRadio,9,1)
+        self._mysqlBackupRadio.setChecked(True)
+        self._dealRadioToggled(RADIO_MYSQL_BACKUP,True)
+        self._myqslBackupLogicRadio.setChecked(True)
+        self._dealRadioToggled(RADIO_MYSQL_BACKUP_LOGIC,True)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupRadio,0,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreRadio,0,1)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupLogicRadio,1,0,1,3)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupFullRadio,1,1)
+        self.backupMysqlGridLayout.addWidget(self._myqslBackupIncrementRadio,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserLabel,2,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHUserEditline,2,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortLabel,3,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPortEditline,3,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordLabel,4,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordEditline,4,1,1,2)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupCompressCheckBox,5,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupToLocalCheckBox,5,1)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathLabel,6,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlbackupPathEditLine,6,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathButton,6,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathLabel,7,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathEditLine,7,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupLocalPathButton,7,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirLabel,8,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirEditLine,8,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlBackupIncrementalBaseDirButton,8,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirLabel,9,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirEditLine,9,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirButton,9,4)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathLabel,10,0)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathEditLine,10,1,1,3)
+        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathButton,10,4)
+        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,11,0)
         self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
-
-        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirLabel,10,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirEditLine,10,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlRestoreTargetDirButton,10,4)
-
-        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathLabel,11,0)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathEditLine,11,1,1,3)
-        self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathButton,11,4)
-
         self.occupyTestData()
 
     def occupyTestData(self):
-        self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
-        self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
-        self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-03-18')
-        self._mysqlBackupIncrementalBaseDirEditLine.setText('/data/backup/my3578/bak')
+        # self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
+        # self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
+        # self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-03-18')
+        # self._mysqlBackupIncrementalBaseDirEditLine.setText('/data/backup/my3578/bak')
+        # self._mysqlSSHUserEditline.setText('mysql')
+        # self._mysqlSSHPasswordEditline.setText('8845')
+        # self._mysqlSSHPortEditline.setText('22')
+        pass
 
 
     def _setupRestoreMysqlWidget(self):
         self.restoreMysqlQWidget = QtWidgets.QWidget()
         self.restoreMysqlGridLayout = QtWidgets.QGridLayout()
-        self.launchRestoreMysqlButton = self._createQCommandLinkButton('restore',self._mysqlCheckAndSetConfig,True)
+        self.launchRestoreMysqlButton = self._createQCommandLinkButton('恢复',self._mysqlCheckAndSetConfig,True)
         self.restoreMysqlGridLayout.addWidget(self.launchRestoreMysqlButton,1,1)
         self.restoreMysqlQWidget.setLayout(self.restoreMysqlGridLayout)
 
@@ -484,12 +493,12 @@ class Ui_MainWindow(object):
     def _setupCreateDatabaseWidget(self):
         self.createDatabaseQWidget = QtWidgets.QWidget()
         self.createDBGridLayout = QtWidgets.QGridLayout()
-        self.directoryLabel = self._addLabel("sqlDir:")
-        self.sqlFileDirLineText = self._addEditLine(textChanged=lambda text: setattr(CREATE_MYSQL_CONFIG,'sqlfiledir',text))
-        self.findSQLFileDirButton = self._createButton('Browers',lambda :self._getFileDir(self.sqlFileDirLineText,MYSQL_CREATE_DB),fixwidth=80)
-        self.launchCRDBButton = self._createQCommandLinkButton('create',self._launchCreateDB,False)
-        self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError',True)
-        self.logStatementCheckBox = self._addCheckBox('LogStatement',True)
+        self.directoryLabel = self._addLabel("sql脚本目录:")
+        self.sqlFileDirLineText = self._addEditLine(textChanged=lambda text: setattr(config.CREATE_MYSQL_CONFIG,'sqlfiledir',text))
+        self.findSQLFileDirButton = self._createButton('浏览',lambda :self._getFileDir(self.sqlFileDirLineText,MYSQL_CREATE_DB),fixwidth=80)
+        self.launchCRDBButton = self._createQCommandLinkButton('创建',self._launchCreateDB,False)
+        self.ignoreErrorCheckBox = self._addCheckBox('忽略错误',True,enabled=True)
+        self.logStatementCheckBox = self._addCheckBox('记录语句到日志',True,enabled=True)
         self.createMysqlDBDeployModeLabel = self._addLabel()
         self.createMysqlDBDeployModecomboBox = QtWidgets.QComboBox()
         self.createMysqlDBDeployModecomboBox.addItem("")
@@ -519,64 +528,6 @@ class Ui_MainWindow(object):
         self.createDBGridLayout.setVerticalSpacing(20)
         self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
         return self.createDatabaseQWidget
-    #
-    #
-    #
-    # def _setupCreateDatabaseWidget(self):
-    #     self.createDatabaseQWidget = QtWidgets.QWidget()
-    #     self.createDatabaseQWidget.setGeometry(QtCore.QRect(0, 0, 400, 421))
-    #     self.createDatabaseQWidget.setObjectName("createDatabaseQWidget")
-    #
-    #     self.createDBGridLayout = QtWidgets.QGridLayout()
-    #     self.directoryLabel = QLabel("sql directory:")
-    #     self.findSQLFileDirButton = self._createButton('Browers',self._getSQLFileDir)
-    #     self.sqlFileDirLineText = self._createTextEdit(True)
-    #
-    #     self.logdDirectoryLabel = QLabel("log directory:")
-    #     self.findLogDirButton = self._createButton('Browers',self._getSQLFileDir)
-    #     self.logDirLineText = self._createTextEdit(True)
-    #
-    #     self.launchCRDBButton = self._createQCommandLinkButton('create',self._launchCreateDB,False)
-    #
-    #     self.ignoreErrorCheckBox = self._addCheckBox('IgnoreError',True)
-    #     self.logStatementCheckBox = self._addCheckBox('LogStatement',True)
-    #
-    #     self.createMysqlDBDeployModeLabel = QLabel()
-    #     self.createMysqlDBDeployModecomboBox = QtWidgets.QComboBox()
-    #     self.createMysqlDBDeployModecomboBox.setObjectName("createMysqlDBDeployModecomboBox")
-    #     self.createMysqlDBDeployModecomboBox.addItem("")
-    #     self.createMysqlDBDeployModecomboBox.addItem("")
-    #
-    #     self.createMysqlDBLogLevelLabel = QLabel()
-    #     self.createMysqlDBLogLevelcomboBox = QtWidgets.QComboBox()
-    #     self.createMysqlDBLogLevelcomboBox.setObjectName("createMysqlDBLogLevelcomboBox")
-    #     self.createMysqlDBLogLevelcomboBox.addItem("DEBUG")
-    #     self.createMysqlDBLogLevelcomboBox.addItem("VERBOSE")
-    #     self.createMysqlDBLogLevelcomboBox.addItem("INFO")
-    #     self.createMysqlDBLogLevelcomboBox.addItem("WARNING")
-    #     self.createMysqlDBLogLevelcomboBox.addItem("ERROR")
-    #
-    #     self.createMysqlDBProgressBar = self._createProgressBar('createMysqlDBProgressBar')
-    #
-    #     self.createDBGridLayout.addWidget(self.directoryLabel,0,0)
-    #     self.createDBGridLayout.addWidget(self.sqlFileDirLineText,0,1,1,3)
-    #     self.createDBGridLayout.addWidget(self.findSQLFileDirButton,0,4)
-    #     self.createDBGridLayout.addWidget(self.logdDirectoryLabel,1,0)
-    #
-    #     self.createDBGridLayout.addWidget(self.logDirLineText,1,1,1,3)
-    #     self.createDBGridLayout.addWidget(self.findLogDirButton,1,4)
-    #     self.createDBGridLayout.addWidget(self.ignoreErrorCheckBox,2,0,1,2)
-    #     self.createDBGridLayout.addWidget(self.logStatementCheckBox,2,1,1,2)
-    #     self.createDBGridLayout.addWidget(self.createMysqlDBDeployModeLabel,3,0)
-    #     self.createDBGridLayout.addWidget(self.createMysqlDBDeployModecomboBox,3,1,1,3)
-    #     self.createDBGridLayout.addWidget(self.createMysqlDBLogLevelLabel,4,0)
-    #     self.createDBGridLayout.addWidget(self.createMysqlDBLogLevelcomboBox,4,1,1,2)
-    #     self.createDBGridLayout.addWidget(self.createMysqlDBProgressBar,5,0,1,5)
-    #     self.createDBGridLayout.addWidget(self.launchCRDBButton,6,3)
-    #     self.createDatabaseQWidget.setLayout(self.createDBGridLayout)
-    #
-    #     self.logCommandTabs[MYSQL_CREATE_DB][PROGRESS] = self.createMysqlDBProgressBar
-    #     return self.createDatabaseQWidge
 
     def _setupMysqlCheckAliveWidget(self):
         self.checkAliveQWidget = QtWidgets.QWidget()
@@ -584,7 +535,7 @@ class Ui_MainWindow(object):
         self.checkAliveQWidget.setObjectName("checkAliveQWidget")
 
         self.checkMysqlDBAliveGridLayout = QtWidgets.QGridLayout()
-        self.checkMysqlAliveButton = self._createQCommandLinkButton('do check',self._launchCheckMysqlAlive,False)
+        self.checkMysqlAliveButton = self._createQCommandLinkButton('测试连接',self._launchCheckMysqlAlive,False)
         self.checkMysqlAliveButton.setGeometry(QtCore.QRect(261, 0, 131, 41))
         self.checkMysqlDBAliveGridLayout.addWidget(self.checkMysqlAliveButton,0,2)
         self.checkAliveQWidget.setLayout(self.checkMysqlDBAliveGridLayout)
@@ -594,11 +545,11 @@ class Ui_MainWindow(object):
         self._setupCreateDatabaseWidget()
         self._setupMysqlCheckAliveWidget()
         self._setupBackupMysqlWidget()
-        self._setupRestoreMysqlWidget()
+        # self._setupRestoreMysqlWidget()
         self.mysqlActionBox.addItem(self.createDatabaseQWidget, "")
         self.mysqlActionBox.addItem(self.checkAliveQWidget, "")
         self.mysqlActionBox.addItem(self.backupMysqlQWidget, "")
-        self.mysqlActionBox.addItem(self.restoreMysqlQWidget, "")
+        # self.mysqlActionBox.addItem(self.restoreMysqlQWidget, "")
         self.mysqlActionBox.layout().setContentsMargins(0,0,0,0)
         self._initButtonEnable()
 
@@ -680,42 +631,40 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
 
-        MainWindow.setWindowTitle(self._translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(self._translate("MainWindow", "Python运维工具"))
         self.mainPannelTabWidget.setToolTip(self._translate("MainWindow", "<html><head/><body><p>mysql</p></body></html>"))
         self.mainPannelTabWidget.setWhatsThis(self._translate("MainWindow", "<html><head/><body><p>MySQL</p></body></html>"))
-        self.launchCRDBButton.setText(self._translate("MainWindow", "create"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), self._translate("MainWindow", "createdb"))
-        self.checkMysqlAliveButton.setText(self._translate("MainWindow", "do check"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), self._translate("MainWindow", "checkAlive"))
-        self.launchBackupMysqlButton.setText(self._translate("MainWindow", "do action"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupMysqlQWidget), self._translate("MainWindow", "backup"))
-        self.launchRestoreMysqlButton.setText(self._translate("MainWindow", "do restore"))
-        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreMysqlQWidget), self._translate("MainWindow", "restore"))
-        # self.mysqlCommandButton.setText(self._translate("MainWindow", "enter"))
-        # self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.mysqlCommandQWidget), self._translate("MainWindow", "command"))
-        self.hostLabel.setText(self._translate("MainWindow", "host"))
-        self.portLabel.setText(self._translate("MainWindow", "port"))
-        self.userLabel.setText(self._translate("MainWindow", "user"))
-        self.databaseLabel.setText(self._translate("MainWindow", "database"))
-        self.passwordLabel.setText(self._translate("MainWindow", "password"))
-        self.commitPubConfigButton.setText(self._translate("MainWindow", "done"))
+        self.launchCRDBButton.setText(self._translate("MainWindow", "开始部署"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.createDatabaseQWidget), self._translate("MainWindow", "部署脚本"))
+        self.checkMysqlAliveButton.setText(self._translate("MainWindow", "测试连接"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.checkAliveQWidget), self._translate("MainWindow", "Mysql服务检查"))
+        self.launchBackupMysqlButton.setText(self._translate("MainWindow", "开始"))
+        self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.backupMysqlQWidget), self._translate("MainWindow", "备份 / 恢复"))
+        # self.launchRestoreMysqlButton.setText(self._translate("MainWindow", "do restore"))
+        # self.mysqlActionBox.setItemText(self.mysqlActionBox.indexOf(self.restoreMysqlQWidget), self._translate("MainWindow", "恢复"))
+        self.hostLabel.setText(self._translate("MainWindow", "主机"))
+        self.portLabel.setText(self._translate("MainWindow", "端口"))
+        self.userLabel.setText(self._translate("MainWindow", "用户"))
+        self.databaseLabel.setText(self._translate("MainWindow", "数据库名称"))
+        self.passwordLabel.setText(self._translate("MainWindow", "密码"))
+        self.commitPubConfigButton.setText(self._translate("MainWindow", "保存"))
         self.pubConfigLabel.setText(self._translate("MainWindow", "公共配置"))
         self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.mysqlQWidget), self._translate("MainWindow", "MySQL"))
         self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.esQWidget), self._translate("MainWindow", "ElasticSearch"))
         self.mainPannelTabWidget.setTabText(self.mainPannelTabWidget.indexOf(self.oracleQWidget), self._translate("MainWindow", "Oracle"))
-        self.menuFile.setTitle(self._translate("MainWindow", "File"))
-        self.menuhelp.setTitle(self._translate("MainWindow", "help"))
-        self.actionExit.setText(self._translate("MainWindow", "Exit"))
-        self.actionabout_version.setText(self._translate("MainWindow", "about version"))
-        self.actionmanual.setText(self._translate("MainWindow", "manual"))
-        self.createMysqlDBDeployModecomboBox.setItemText(0, self._translate("MainWindow", "Simple deploy"))
-        self.createMysqlDBDeployModecomboBox.setItemText(1, self._translate("MainWindow", "Parallel deploy"))
+        self.menuFile.setTitle(self._translate("MainWindow", "文件"))
+        self.menuhelp.setTitle(self._translate("MainWindow", "帮助"))
+        self.actionExit.setText(self._translate("MainWindow", "退出"))
+        self.actionabout_version.setText(self._translate("MainWindow", "关于"))
+        self.actionmanual.setText(self._translate("MainWindow", "手册"))
+        self.createMysqlDBDeployModecomboBox.setItemText(0, self._translate("MainWindow", "简单部署"))
+        self.createMysqlDBDeployModecomboBox.setItemText(1, self._translate("MainWindow", "并行部署"))
         self.createMysqlDBLogLevelcomboBox.setItemText(0, self._translate("MainWindow", "DEBUG"))
         self.createMysqlDBLogLevelcomboBox.setItemText(1, self._translate("MainWindow", "VERBOSE"))
         self.createMysqlDBLogLevelcomboBox.setItemText(2, self._translate("MainWindow", "INFO"))
         self.createMysqlDBLogLevelcomboBox.setItemText(3, self._translate("MainWindow", "WARNING"))
         self.createMysqlDBLogLevelcomboBox.setItemText(4, self._translate("MainWindow", "ERROR"))
-        self.createMysqlDBDeployModeLabel.setText(self._translate("MainWindow", "deploy mode"))
-        self.createMysqlDBLogLevelLabel.setText(self._translate("MainWindow", "log level"))
+        self.createMysqlDBDeployModeLabel.setText(self._translate("MainWindow", "部署模式"))
+        self.createMysqlDBLogLevelLabel.setText(self._translate("MainWindow", "日志级别"))
 
 

@@ -3,15 +3,18 @@ import time
 import traceback
 from abc import ABCMeta,abstractmethod
 from enum import Enum
-from public_module.global_vars import getNotifier
+from logging.handlers import  TimedRotatingFileHandler
+from os import path
 
+from public_module.global_vars import getNotifier
+import logging
 
 class LogLevel(Enum):
-    DEBUG = 0
-    VERBOSE = 1
-    INFO = 2
-    WARNING = 3
-    ERROR = 4
+    DEBUG = 10
+    VERBOSE = 10
+    INFO = 20
+    WARNING = 30
+    ERROR = 40
 
 currentLevel = LogLevel.DEBUG
 
@@ -56,21 +59,34 @@ class CombineLogChannel(TargetLogChannel):
 
 
 _defaultLogChannel = DefaultLogChannel()
+logger = logging.getLogger("log")
+# logging.basicConfig()
+filehandler = TimedRotatingFileHandler(path.join(path.split(__file__)[0],'running.log'),when='D',backupCount=7,encoding='utf-8')
+lformat = logging.Formatter(fmt=' %(asctime)s-%(levelname)s-%(name)s-%(thread)d-%(message)s')
+filehandler.setFormatter(lformat)
+logger.addHandler(filehandler)
+logger.setLevel(currentLevel.value)
+
 
 def debug(msg,logchannel=None):
     _log_msg(LogLevel.DEBUG,msg,logchannel)
+    logger.debug(msg)
 
 def verbose(msg,logchannel=None):
     _log_msg(LogLevel.VERBOSE,msg,logchannel)
+    logger.info(msg)
 
 def info(msg,logchannel=None):
     _log_msg(LogLevel.INFO,msg,logchannel)
+    logger.info(msg)
 
 def warning(msg,logchannel=None):
     _log_msg(LogLevel.WARNING,msg,logchannel)
+    logger.warning(msg)
 
 def error(msg,logchannel=None):
     _log_msg(LogLevel.ERROR,msg,logchannel)
+    logger.error(msg)
 
 
 def _log_msg(level:LogLevel,msg:str,logchannel):

@@ -3,8 +3,24 @@ from configparser import ConfigParser
 from os import path
 
 from deploy.fields import FieldMeta
-from public_module.global_vars import  ThreadSafeHouse
+from public_module.utils import getCurrentThreadID, none_null_stringNone
 
+
+class ThreadSafeHouse(object):
+
+    def __init__(self,mouse):
+        self._store = {}
+        self._mouse = mouse
+
+    def add(self):
+        curThreadid = getCurrentThreadID()
+        self._store[curThreadid] = self._mouse.copy()
+
+    def get(self):
+        return self._store.get(getCurrentThreadID())
+
+    def remove(self):
+        self._store.pop(getCurrentThreadID(),None)
 
 class ConfigBase(object,metaclass=FieldMeta):
     host:str
@@ -12,6 +28,8 @@ class ConfigBase(object,metaclass=FieldMeta):
     user:str
     password:str
 
+    def __init__(self):
+        self._attributes = {}
     def __repr__(self):
         vs = {}
         for k in self._attribute_names:
@@ -53,9 +71,11 @@ class ConfigBase(object,metaclass=FieldMeta):
 class MysqlConfig(ConfigBase):
     database:str
     logfiledir:str
+    ignore_error:str
 
 class CreateMysqlConfig(MysqlConfig):
     sqlfiledir:str
+    log_statement:bool
 
 class BackupConfig(ConfigBase):
 
@@ -102,6 +122,38 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     socket_file:str
     backup_sql_file:str
     mysql_software_path:str
+
+    def checkConfig(self):
+        result = True
+        result_msg = ''
+        if (none_null_stringNone(self.host) or none_null_stringNone(self.port) or none_null_stringNone(self.ssh_password) \
+                or none_null_stringNone(self.ssh_port) or none_null_stringNone(self.ssh_user) or none_null_stringNone(self.backup_dir)):
+            result = False
+            result_msg += ' host or port  or ssh_user or ssh_password or ssh_port is null '
+        if self.operate == self._CONS_OPERATE_BACKUP:
+            if (none_null_stringNone(self.user) or none_null_stringNone(self.password)):
+                result = False
+                result_msg += ' user or password is null '
+            if self.backup_mode == self._CONS_BACKUP_MODE_INCREMENT:
+                if none_null_stringNone(self.backup_base_dir):
+                    result = False
+                    result_msg += ' user or password is null '
+        else:
+            if (none_null_stringNone(self.restore_target_dir) or none_null_stringNone(self.mysql_software_path)):
+                result = False
+                result_msg += ' restore_target_dir or mysql_software_path is null '
+            if self.operate == self._CONS_BACKUP_MODE_LOGIC:
+                if (none_null_stringNone(self.user) or none_null_stringNone(self.password)):
+                    result = False
+                    result_msg += ' user or password is null '
+            elif self.operate == self._CONS_BACKUP_MODE_INCREMENT:
+                if none_null_stringNone(self.backup_base_dir):
+                    result = False
+                    result_msg += ' user or password is null '
+        return result,result_msg
+
+
+
 
 def _checkEqual(source,target):
     try:

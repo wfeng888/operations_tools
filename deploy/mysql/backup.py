@@ -76,7 +76,6 @@ class BackupBase(ContextManager):
     def backupInit(self):
         self._config.backup_dir = path_join(self._config.backup_base_dir,formatDate())
 
-
     def restoreInit(self):
         self._config.backup_dir = self._config.backup_base_dir
 
@@ -96,7 +95,7 @@ class BackupBase(ContextManager):
         pass
 
     def afterRestore(self):
-        pass
+        return 0
 
     def close(self):
         del self._config
@@ -146,7 +145,7 @@ class BackupBase(ContextManager):
 class MysqlBackup(BackupBase):
     def __init__(self,sshobject,backupconfig,ds=None,conn=None):
         super(MysqlBackup, self).__init__(sshobject,backupconfig)
-        if not self._config.operate == MysqlBackupConfig._CONS_OPERATE_RESTORE:
+        if  self._config.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP or self._config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC:
             if not conn:
                 self._ds = ds if ds else getDS(*(self._config.user,self._config.password,self._config.host,self._config.port,self._config.database))
                 self._conn = self._ds.get_conn()
@@ -214,8 +213,12 @@ class MysqlBackup(BackupBase):
             s = self.target_dir[1].rpartition('/')
             cmd = 'cd %s;tar -czpvf %s  %s'%(s[0],s[2] + '.tar.gz',s[2])
             stat,_ = self._sshobject.execute_cmd(cmd)
+            log.info('compress backup files complete ')
             if stat == ConnectionBase.SHELL_SUCCESS:
-                self._sshobject.transferFileFromRemote(self.target_dir[1]+'tar.gz',path_join(self.saved_local_path,s[2] + '.tar.gz'))
+                log.info('transfer compress backup files from remote to local  ')
+                log.info('transfer compress backup files from remote to local ,this may be a long time ,please wait in patience ...... ')
+                self._sshobject.transferFileFromRemote(self.target_dir[1]+'.tar.gz',path_join(self.saved_local_path,s[2] + '.tar.gz'))
+                log.info('transfer compress backup files complete .')
         return paramf_stat
 
     def _checkBackupOk(self,logdir):
@@ -658,8 +661,6 @@ class MysqlLogicBackup(MysqlBackup):
         self.restore_log_file = path_join(self.full_dir[1],self.restore_log_name)
         self.sql_file = path_join(self.full_dir[1],self.sql_file_name)
 
-
-
     def updateConfig(self):
         super(MysqlLogicBackup, self).updateConfig()
         self.mysql_base[1] = self.getRestoredMysqlBase()
@@ -728,9 +729,13 @@ class MysqlMysqlClient(MysqlLogicBackup):
     def checkBackupOk(self):
         return self._checkBackupOk(self.full_dir[1])
 
+    def updateRestoreConfig(self):
+        super(MysqlMysqlClient, self).updateRestoreConfig()
+        self.socket[1] = getVariable('socket',self._conn)
+
     def do_restore(self):
         super(MysqlMysqlClient, self).do_restore()
-        self.cmd[1] = self.compactItem(False,self.backupsoftwarepath,self.force,self.user,self.socket,self.password,self.sql_file,'>/dev/null','2>',self.restore_log_file)
+        self.cmd[1] = self.compactItem(False,self.backupsoftwarepath,self.force,self.user,self.socket,self.password,'<',self.sql_file,'>/dev/null','2>',self.restore_log_file)
         self._sshobject.execute_backupground(self.cmd[1],logfile=self.restore_log_file,wait=True)
         return 0
 
@@ -744,7 +749,13 @@ class MysqlMysqlClient(MysqlLogicBackup):
 
 def backup_restore(backupconfig: config.MysqlBackupConfig):
     with ParamikoConnection(backupconfig.host,backupconfig.ssh_user,backupconfig.ssh_password,backupconfig.ssh_port) as pk:
+        log.info('test ssh connect...')
+        if not testSSHConnect(pk):
+            log.error('ssh connect to target host failed !')
+            return False
+        log.info('ssh connect to target host success !')
         ba = None
+        stat = BackupBase.RESULT_FAIL
         if backupconfig.backup_mode == config.MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC:
             if backupconfig.operate == config.MysqlBackupConfig._CONS_OPERATE_BACKUP:
                 ba = MysqlDump(pk,backupconfig)
@@ -761,3 +772,11 @@ def backup_restore(backupconfig: config.MysqlBackupConfig):
             msg = ' failed ! '
         log.info(backupconfig.operate + msg)
         ba.close()
+        return stat
+
+
+def testSSHConnect(connetobj):
+    stat,data = connetobj.execute_cmd('echo ~')
+    if stat == ConnectionBase.SHELL_SUCCESS:
+        return True
+    return False
