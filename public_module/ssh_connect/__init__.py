@@ -1,3 +1,4 @@
+import functools
 import traceback
 from abc import ABCMeta, abstractmethod
 
@@ -80,3 +81,34 @@ class ConnectionBase(ContextManager,metaclass=ABCMeta):
 
 
 
+
+class CommandException(Exception):
+    _msg =  ' '
+    def __init__(self,msg):
+        if msg:
+            self._msg += ' ' + msg
+
+    def __repr__(self):
+        return self._msg
+
+
+def checkAndRaise(stat,msg,success=ConnectionBase.SHELL_SUCCESS):
+    if isinstance(stat,(list,tuple)):
+        stat = stat[0]
+    if not (stat == success or True == stat) :
+        log.error(msg)
+        raise CommandException(msg)
+
+def exec_wrap(func):
+    @functools.wraps(func)
+    def _inner(*args,**kwargs):
+        stat = func(*args,**kwargs)
+        checkAndRaise(stat,'exec args=%s, kwargs=%s failed!'%(args,kwargs))
+        return stat
+    return _inner
+
+@exec_wrap
+def exec(func,args=()):
+    if not isinstance(args,(list,tuple)):
+        args = (args,)
+    return func(*args)

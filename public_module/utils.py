@@ -25,7 +25,12 @@ def stringNone(param):
 def none_null_stringNone(param):
     if isinstance(param,(tuple,list)):
         for i in param:
-            if not (isNull(param) or stringNone(param)):
+            if not none_null_stringNone(i):
+                return False
+        return True
+    elif isinstance(param,dict):
+        for k in param.keys():
+            if not none_null_stringNone(param[k]):
                 return False
         return True
     return isNull(param) or stringNone(param)
@@ -39,11 +44,16 @@ def path_join(basepath,suffixpath,sep='/'):
             basepath = basepath.strip()
             if basepath[-1] == sep:
                 basepath = basepath[:-1]
-        if not isNull(suffixpath):
-            suffixpath = suffixpath.strip()
-            if suffixpath[0] != sep:
-                suffixpath = sep + suffixpath
-        return basepath + suffixpath
+        if not isinstance(suffixpath,(tuple,list)):
+            suffixpath = (suffixpath,)
+        s = ''
+        for i in suffixpath:
+            if not isNull(i):
+                i = i.strip()
+                if i[0] != sep:
+                    i = sep + i
+                s += i
+        return basepath + s
 
 
 def containString(param):
@@ -67,6 +77,9 @@ def safe_doing(func,*args):
         func(*args)
     except BaseException as e:
         print(traceback.format_exc())
+
+def format_exc():
+    return traceback.format_exc()
 
 def whichPath(software,sshconnect):
     cmd = 'which ' + software

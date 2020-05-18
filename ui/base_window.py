@@ -21,6 +21,10 @@ class BaseWindow(object):
         self._window = window
         self._action_pannel = actionPannel
         self._log_pannel = logPannel
+        # self._window.update_ui.connect(self.updateUI)
+
+    def updateUI(self,func,params):
+        func(*params)
 
     def updateProgress(self,id,progress):
         log.debug('id:{},msg:{}'.format(str(id),str(progress)))
@@ -151,11 +155,13 @@ class BaseWindow(object):
         tab.layout().setContentsMargins(0,0,0,0)
         tabWidget.addTab(tab, "")
         tabWidget.setTabText(tabWidget.indexOf(tab), self._translate("MainWindow", title))
-        tabWidget.setCurrentWidget(tabWidget)
+        tabWidget.setCurrentWidget(tab)
         return  {TABPAGE:tab,LOG:logTextEdit,COMMAND:commandTextEdit}
 
-    def _getFileDir(self):
+    def _getFileDir(self,obj=None):
         directory = QFileDialog.getExistingDirectory(self._window, "Find Files", QDir.currentPath())
+        if obj:
+            obj.setText(directory)
         return directory
 
     def _taskStartCallback(self,id):
@@ -198,3 +204,14 @@ class BaseWindow(object):
         qvblayout.setStretchFactor(self.actionBox,100)
         self._action_pannel.setLayout(qvblayout)
         self._action_pannel.layout().setContentsMargins(0,0,0,0)
+
+    def addWidget(self,parent=None):
+        qwidget = QtWidgets.QWidget()
+        gridLayout = QtWidgets.QGridLayout()
+        gridLayout.setVerticalSpacing(20)
+        qwidget.setLayout(gridLayout)
+        if parent:
+            parent.addItem(qwidget,"")
+        else:
+            self.actionBox.addItem(qwidget,"")
+        return qwidget

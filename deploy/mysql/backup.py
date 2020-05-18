@@ -10,9 +10,8 @@ from deploy.mysql import constant, DBUtils
 from deploy.mysql.DBUtils import safe_close, getVariable
 from deploy.mysql.DataSource import getDS
 from deploy.mysql.constant import MYSQL57_CNF_VAR_PREFERENCE
+from deploy.mysql.mysql_config import BackupConfig, MysqlBackupConfig
 from public_module import  to_text, ContextManager
-from public_module.config import BackupConfig,MysqlBackupConfig
-import public_module.config as config
 from public_module.ssh_connect import ConnectionBase
 
 from public_module.ssh_connect.paramiko_ssh import ParamikoConnection
@@ -747,7 +746,7 @@ class MysqlMysqlClient(MysqlLogicBackup):
                 return True
         return False
 
-def backup_restore(backupconfig: config.MysqlBackupConfig):
+def backup_restore(backupconfig: MysqlBackupConfig):
     with ParamikoConnection(backupconfig.host,backupconfig.ssh_user,backupconfig.ssh_password,backupconfig.ssh_port) as pk:
         log.info('test ssh connect...')
         if not testSSHConnect(pk):
@@ -756,8 +755,8 @@ def backup_restore(backupconfig: config.MysqlBackupConfig):
         log.info('ssh connect to target host success !')
         ba = None
         stat = BackupBase.RESULT_FAIL
-        if backupconfig.backup_mode == config.MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC:
-            if backupconfig.operate == config.MysqlBackupConfig._CONS_OPERATE_BACKUP:
+        if backupconfig.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC:
+            if backupconfig.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP:
                 ba = MysqlDump(pk,backupconfig)
             else:
                 ba = MysqlMysqlClient(pk,backupconfig)

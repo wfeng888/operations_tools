@@ -15,14 +15,19 @@ def setx(cname,cself, value):
         if not none_null_stringNone(value):
             cself._attributes[cname] = int(value)
     elif isinstance(cls,(list,tuple)) or cls in (list,tuple):
-        if not isinstance(value,(list,tuple)):
+        if not isinstance(value,(list,tuple)) and not none_null_stringNone(value):
             cself._attributes[cname] = value.split(',')
-        else:
+        elif isinstance(value,(list,tuple)):
             cself._attributes[cname] = value
+        else:
+            cself._attributes[cname] = (value,)
     elif isinstance(cls,dict) or cls == dict:
         if not isinstance(value,dict):
-            tmplist = value.split(',')
-            cself._attributes[cname][tmplist.split(':')[0]] = tmplist.split(':')[1]
+            if not getattr(cself._attributes,cname,None):
+                cself._attributes[cname] = {}
+            for item in value.split(','):
+                if str(item).find(':') > 0:
+                    cself._attributes[cname][item.split(':')[0]] = item.split(':')[1]
         else:
             cself._attributes[cname] = value
     elif isinstance(cls,bool) or cls == bool:

@@ -1,22 +1,22 @@
 import threading
 
-import copy
-
 from PyQt5.QtCore import QThread
 
 getCurrentThreadID = QThread.currentThread
 
 notifiers = dict()
 notifierLock = threading.Lock()
-def addNotifier(notifyobj):
+def addNotifier(notifyobj,type='default'):
     global notifiers,notifierLock
     notifierLock.acquire()
     curThreadid = getCurrentThreadID()
-    notifiers[curThreadid] = notifyobj
+    if not notifiers.get(curThreadid,None):
+        notifiers[curThreadid] = {}
+    notifiers[curThreadid][type] = notifyobj
     # notifiers[notifyobj] = curThreadid
     notifierLock.release()
 
-def removeNotifier(threadid = None):
+def removeNotifier(threadid = None,type='default'):
     global notifiers,notifierLock
     try:
         notifierLock.acquire()
@@ -27,8 +27,11 @@ def removeNotifier(threadid = None):
         if not threadid:
             threadid = getCurrentThreadID()
         if notifiers.has_key(threadid):
-            # curnotifier =  notifiers[threadid]
-            del notifiers[threadid]
+            curnotifier =  notifiers[threadid]
+            if curnotifier.has_key(type):
+                del curnotifier[type]
+            if len(curnotifier) < 1:
+                del notifiers[threadid]
             # del notifiers[curnotifier]
     except BaseException :
         pass
@@ -38,10 +41,13 @@ def removeNotifier(threadid = None):
         except BaseException:
             pass
 
-def getNotifier():
+def getNotifier(type='default'):
     global notifiers
     curThreadid = getCurrentThreadID()
-    return notifiers.get(curThreadid,None)
+    curnotifier = notifiers.get(curThreadid,None)
+    if curnotifier:
+        return curnotifier.get(type,None)
+    return None
 
 
 

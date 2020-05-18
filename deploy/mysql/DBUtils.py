@@ -1,7 +1,5 @@
-import time
-import traceback
-from collections import deque
 
+import traceback
 from mysql.connector import Error
 import log
 from public_module.utils import record_log

@@ -3,8 +3,8 @@ import traceback
 from mysql.connector import InterfaceError
 
 import log
-from public_module.config import getConfig, CreateMysqlConfig, MysqlConfig
-from deploy.until import list_sqlfile_new
+from deploy.mysql.mysql_config import CreateMysqlConfig, MysqlConfig
+from deploy.until import Sort,TYPE_MYSQL
 from deploy.mysql import SimpleDeploy
 from deploy.mysql.DataSource import getDS
 from deploy.mysql.DBUtils import formatErrorMsg, isDBExists, safe_close
@@ -15,7 +15,8 @@ def execute_createDB(config:CreateMysqlConfig,mode=SIMPLE_DEPLOY):
 
     if mode == SIMPLE_DEPLOY:
         log.info('start looking for sqlfile')
-        sqlfiles,num = list_sqlfile_new(config.sqlfiledir)
+        sort = Sort(TYPE_MYSQL,'.SQL')
+        sqlfiles,num = sort.list_sqlfile_new(config.sqlfiledir)
         log.info('has get all sorted sqlfile')
         SimpleDeploy.exec_warp(config,sqlfiles,num)
         log.info('finished create db ')

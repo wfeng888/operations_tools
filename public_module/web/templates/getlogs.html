@@ -1,0 +1,14 @@
+<html>
+<head>
+    <title >查看安装详细日志</title>
+</head>
+
+<body>
+<div class="container">
+    {% for url in urls %}
+    <a href={{ url["address"] }}  target="_Blank" > {{ url["host"] }} </a> <br/>
+    {% end %}
+</div>
+
+</body>
+</html>

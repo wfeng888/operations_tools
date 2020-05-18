@@ -11,7 +11,8 @@ from deploy.mysql.mysql_exec import execute_createDB, isInstanceActive
 from public_module import config
 
 import log
-from public_module.config import MysqlBackupConfig, MysqlConfig, MYSQL_CONFIG, updateMysqlConfig, initMysqlConfig
+from deploy.mysql.mysql_config import MysqlBackupConfig, MysqlConfig, MYSQL_CONFIG, updateMysqlConfig, initMysqlConfig, \
+    checkConfigForMysqlCreateDB, checkConfigForMysqlAlive, CREATE_MYSQL_CONFIG
 from public_module.utils import none_null_stringNone
 from ui.base_window import BaseWindow, PROGRESS
 
@@ -51,13 +52,13 @@ class MysqlWindow(BaseWindow):
         }
 
     def _checkMysqlCreateDBButton(self):
-        if config.checkConfigForMysqlCreateDB() and not self._isTaskBusy(MYSQL_CREATE_DB):
+        if checkConfigForMysqlCreateDB() and not self._isTaskBusy(MYSQL_CREATE_DB):
             self.launchCRDBButton.setEnabled(True)
         else:
             self.launchCRDBButton.setEnabled(False)
 
     def _checkMysqlServiceAliveButton(self):
-        if config.checkConfigForMysqlAlive() and not self._isTaskBusy(MYSQL_CHECK_ALIVE):
+        if checkConfigForMysqlAlive() and not self._isTaskBusy(MYSQL_CHECK_ALIVE):
             self.checkMysqlAliveButton.setEnabled(True)
         else:
             self.checkMysqlAliveButton.setEnabled(False)
@@ -165,10 +166,9 @@ class MysqlWindow(BaseWindow):
             self._mysqlBackupLocalPathEditLine.setEnabled(True if state > 0 else False)
 
     def _getFileDir(self,obj,id,fallback=None,args=()):
-        directory = super()._getFileDir()
-        obj.setText(directory)
+        directory = super()._getFileDir(obj)
         if id == MYSQL_CREATE_DB:
-            config.CREATE_MYSQL_CONFIG.sqlfiledir = directory
+            CREATE_MYSQL_CONFIG.sqlfiledir = directory
         self._checkButtonEnable(id)
         if fallback:
             fallback(*args)
@@ -181,9 +181,9 @@ class MysqlWindow(BaseWindow):
 
     def _launchCreateDB(self):
         log.debug('begin create database')
-        config.CREATE_MYSQL_CONFIG.log_statement = self.logStatementCheckBox.isChecked()
-        config.CREATE_MYSQL_CONFIG.ignore_error = self.ignoreErrorCheckBox.isChecked()
-        _config = config.CREATE_MYSQL_CONFIG.copy()
+        CREATE_MYSQL_CONFIG.log_statement = self.logStatementCheckBox.isChecked()
+        CREATE_MYSQL_CONFIG.ignore_error = self.ignoreErrorCheckBox.isChecked()
+        _config = CREATE_MYSQL_CONFIG.copy()
         self._launchTask(execute_createDB,MYSQL_CREATE_DB,pargs=(_config,))
 
     def _mysqlCheckAndSetConfig(self):
@@ -332,7 +332,7 @@ class MysqlWindow(BaseWindow):
         self.createDatabaseQWidget = QtWidgets.QWidget()
         self.createDBGridLayout = QtWidgets.QGridLayout()
         self.directoryLabel = self._addLabel("sql脚本目录:")
-        self.sqlFileDirLineText = self._addEditLine(textChanged=lambda text: setattr(config.CREATE_MYSQL_CONFIG,'sqlfiledir',text))
+        self.sqlFileDirLineText = self._addEditLine(textChanged=lambda text: setattr(CREATE_MYSQL_CONFIG,'sqlfiledir',text))
         self.findSQLFileDirButton = self._createButton('浏览',lambda :self._getFileDir(self.sqlFileDirLineText,MYSQL_CREATE_DB),fixwidth=80)
         self.launchCRDBButton = self._createQCommandLinkButton('创建',self._launchCreateDB,False)
         self.ignoreErrorCheckBox = self._addCheckBox('忽略错误',True,enabled=True)

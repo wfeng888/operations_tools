@@ -3,7 +3,7 @@ import traceback
 import log
 from deploy.mysql.DBUtils import exec_stts, safe_close
 from parse.outer_parse import simple_parse
-from public_module.config import CreateMysqlConfig
+from deploy.mysql.mysql_config import CreateMysqlConfig
 from deploy.mysql.DataSource import getDS
 from deploy.mysql import DBUtils
 from public_module.global_vars import getNotifier

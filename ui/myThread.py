@@ -1,11 +1,10 @@
 import traceback
 
-from PyQt5.QtCore import QThread, QMutexLocker, pyqtSignal, QMutex
+from PyQt5.QtCore import QThread, pyqtSignal
 
 import log
 from deploy.mysql import BackupException
 from public_module.global_vars import addNotifier,removeNotifier
-from public_module.config import threadSafeMysqlConfig
 
 
 class NotifyCombine(object):

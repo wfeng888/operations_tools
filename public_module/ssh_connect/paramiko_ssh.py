@@ -75,7 +75,7 @@ class ParamikoConnection(ConnectionBase):
         return self._sclint.open_sftp()
 
 
-    def execute_backupground(self,cmd,consumeoutput=True,logfile=None,logmode='r',mode='w',wait=False):
+    def execute_backupground(self,cmd,consumeoutput=True,logfile=None,logmode='r',mode='w',wait=False,wait_time=None,wait_join=False):
         cmd = cmd.strip()
         if cmd[-1] != '&':
             cmd += ' &'
@@ -118,13 +118,16 @@ class ParamikoConnection(ConnectionBase):
                 break
             data = stdout.readline()
         if wait:
+            if wait_time:
+                threading.Thread(target=timerstop,args=(wait_time,)).start()
             if re.match('[0-9]+',pid):
-                threading.Thread(target=wait_process_end,args=(pid,)).start()
+                if wait_join or not wait_time:
+                    threading.Thread(target=wait_process_end,args=(pid,)).start()
                 outputlog()
             else:
                 safe_doing(channel.close)
         else:
-            threading.Thread(target=timerstop).start()
+            threading.Thread(target=timerstop,args=(2,)).start()
             while(data or not channel.closed):
                 if consumeoutput:
                     log.info(to_text(data))
@@ -132,8 +135,31 @@ class ParamikoConnection(ConnectionBase):
                     pass
                 data = stdout.readline()
 
+    def outputlog(self,logfile,wait_time):
+        finish = False
+        def timerstop(func,spread=30,):
+            threading.Event().wait(spread)
+            finish = True
+        threading.Thread(target=timerstop,args=(wait_time,)).start()
+        while (not self.fileExists(logfile) and not finish):
+            threading.Event().wait(1)
+        if self.fileExists(logfile) :
+            cmd = 'tail -f %s  \r\n'%logfile
+            log.debug(cmd)
+            channel,stdin,stdout = self.newChannel()
+            channel.invoke_shell()
+            stdin.write(to_bytes(cmd))
+            stdin.flush()
+            def timerstopchannel(func,spread=30,):
+                threading.Event().wait(spread)
+                channel.close()
+            threading.Thread(target=timerstopchannel,args=(wait_time,)).start()
+            data = stdout.readline()
+            while(data or not channel.closed):
+                log.info(to_text(data))
+                data = stdout.readline()
 
-    def execute_cmd(self,cmd,consumeoutput=True,logfile=None,mode='w'):
+    def execute_cmd(self,cmd,consumeoutput=True,logfile=None,mode='w',wait_time=None):
         try:
             log.debug(cmd)
             channel,_,_ = self.inner_execute_cmd(to_bytes(cmd))
@@ -142,7 +168,12 @@ class ParamikoConnection(ConnectionBase):
             l = None
             if logfile:
                 l =  open(logfile,mode)
-            while(data):
+            def timerstop(spread=2):
+                threading.Event().wait(spread)
+                channel.close()
+            if wait_time:
+                threading.Thread(target=timerstop,args=(wait_time,)).start()
+            while(data or not channel.closed):
                 if consumeoutput:
                     log.info(to_text(data))
                 else:
@@ -195,3 +226,4 @@ class ParamikoConnection(ConnectionBase):
 
     def listdir(self,dir):
         return self.open_sftp().listdir(dir)
+

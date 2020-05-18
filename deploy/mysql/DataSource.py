@@ -12,7 +12,7 @@ from deploy.mysql.Exception import ParamNotMatchException
 import log
 from deploy.mysql.DBUtils import formatErrorMsg
 from deploy.until import safe_doing
-from public_module.config import getConfig, MYSQL_CONFIG
+from deploy.mysql.mysql_config import  MYSQL_CONFIG
 
 
 def get_key(*args,**kwargs):

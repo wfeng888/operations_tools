@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ES集群安装节点配置</title>
+    <style type="text/css">
+    </style>
+</head>
+<body>
+	<input type="button" value="添加节点" onclick="copytab()">
+	<div id='div-body' >
+	<form action="/s/config" method="post" id="messageform" >
+
+		<table id="tab" border="1">
+		<thead id="thead">
+			<tr id="thead-tr">
+				<th colspan="3">节点</th>
+			</tr>
+		</thead>
+			<tbody id="tbody">
+			{% for item in config %}
+				<tr id="tbody-tr">
+					<td><input type='text' value={{ item.get("name",None)  }} /></td>
+					<td><input type='text' name={{ item.get("name",None)  }}  value={{ item.get("value",None) }} /></td>
+					{% if not item.get("required",None) %}
+					<td><input type="button" value="删除"  onclick="del(this)" class="click_del"/></td>
+					{% end %}
+				</tr>
+			{% end %}
+			</tbody>
+			<tfoot id="tfoot" class="tfoot">
+				<td><input type="button" value="添加一行" onclick="addRow(this)"></td>
+				<td class="del_tab" colspan="2"></td>
+			</tfoot>
+		</table>
+		{% module xsrf_form_html() %}
+		<input type="submit" value="Submit" id="submit"/>
+	</form>
+	</div>
+    <script>
+ 
+	function delTab(element){
+		let dom = this;
+		if(element.type!="click")
+		{
+		dom = element;
+		}
+		var form = document.getElementById('messageform');
+		form.removeChild(dom.parentNode.parentNode.parentNode.parentNode)
+	}
+	 function copytab(){
+        var tab=document.getElementById('tab');
+		var form = document.getElementById('messageform');
+		var submitNode = document.getElementById('submit');
+		var cotab = tab.cloneNode(true)
+		var timestamp1 =Date.parse(new Date());
+		cotab.id = timestamp1
+        //cotab.border=tab.border;
+        cotab.style.marginTop='20px';
+		var nodes = cotab.getElementsByClassName("click_del")	
+		for (var i=0;i<nodes.length;i++)
+		{
+		nodes[i].onclick=del
+		}
+        var tfoot_row = cotab.getElementsByClassName("tfoot")[0].children[0]
+		var td=document.createElement("td");
+		var item=document.createElement("input");
+		item.type="button";
+		item.value="删除此节点";
+		item.onclick=delTab;
+		td.appendChild(item);
+		tfoot_row.replaceChild(td,tfoot_row.children[1])
+		 form.insertBefore(cotab,submitNode)
+    }
+	
+	function addRow(element)
+	{
+		var tr=document.createElement("tr");
+		var td1=document.createElement("td");
+		var e1=document.createElement("input");
+		
+		e1.type="text";
+		e1.value="name";
+		td1.appendChild(e1);
+		var td2=document.createElement("td");
+		var e2=document.createElement("input");
+		e2.type="text";
+		e2.value="value";
+		td2.appendChild(e2);
+		var td3=document.createElement("td");
+		var e3=document.createElement("input");
+		e3.type="button";
+		e3.value="删除";
+		e3.onclick=del;
+		e3.setAttribute("class", "click_del"); 
+		//e3.class="click_del"
+		td3.appendChild(e3);
+		tr.appendChild(td1);
+		tr.appendChild(td2);
+		tr.appendChild(td3);
+		var p = element.parentNode.parentNode.parentNode.parentNode
+		p.children[1].appendChild(tr);
+	}
+	function del(element)                                
+	{
+	    
+	    let dom = this;
+		if(element.type!="click")
+		{
+		dom = element;
+		}
+		 dom.parentNode.parentNode.parentNode.removeChild(dom.parentNode.parentNode);
+	}
+	
+	 
+	
+   
+
+    </script>
+</body>
+</html>
