@@ -255,7 +255,7 @@ class ESWindow(BaseWindow):
                         return False
                     config.repository = res['repository']
             log.debug('start snapshot ')
-            res,stats = es_execute.exec_snapshot(config,config.repository,config.index_name,ignore_unavailable=False,include_global_state=False,metadata={})
+            res,stats = es_execute.exec_snapshot(config,config.repository,(config.index_name,),ignore_unavailable=False,include_global_state=False,metadata={})
             if stats == 0:
                 config.snapshotid = res['snapshot']
                 def getSnapShotStatus(config:ESSnapshotRestoreConfig,target_stats=()):
