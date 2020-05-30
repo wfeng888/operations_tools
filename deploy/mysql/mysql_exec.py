@@ -64,6 +64,7 @@ def makeReplicate(config:MasterSlaveConfig):
             try:
                 _ds = getDS(config.repl_user,config.repl_password,config.master_host,config.master_port,'information_schema')
                 _c = _ds.get_conn()
+                res = query(_c,'select 1')
                 safe_close(_c)
             except BaseException as e:
                 log.error(traceback.format_exc())
@@ -71,8 +72,9 @@ def makeReplicate(config:MasterSlaveConfig):
                 log.error('replica user has exists in master, but password is incorrect. stop.')
                 return result
         else:
-            query(conn,"create user '{user}'@'%' identified by '{password}'; flush privileges;".format(user=config.repl_user,password=config.repl_password))
-        query(conn,"grant Replication client,Replication  slave on *.*  to '{user}'@'%'; flush privileges;".format(user=config.repl_user))
+            query(conn,"create user '{user}'@'%' identified by '{password}' ".format(user=config.repl_user,password=config.repl_password))
+        query(conn,"grant Replication client,Replication  slave on *.*  to '{user}'@'%'".format(user=config.repl_user))
+        query(conn,'flush privileges')
         if config.gtid_enable:
             cmd = "change master to MASTER_HOST='{master_host}',MASTER_USER='{repl_user}',MASTER_PORT={master_port},MASTER_PASSWORD='{repl_password}',MASTER_AUTO_POSITION=1"
             query(slave_conn,cmd.format(master_host=config.master_host,master_port=config.master_port,repl_user=config.repl_user,master_password=config.repl_password))
