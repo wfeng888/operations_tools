@@ -149,7 +149,6 @@ class BaseWindow(object):
         boxlayout.addWidget(splitter)
         boxlayout.setSpacing(0)
         boxlayout.setStretch(0,0)
-        boxlayout.setStretch(0,0)
         tab = QtWidgets.QWidget()
         tab.setLayout(boxlayout)
         tab.layout().setContentsMargins(0,0,0,0)

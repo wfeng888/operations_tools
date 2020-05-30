@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import Qt
@@ -23,7 +24,7 @@ MYSQL_CREATE_DB,MYSQL_CHECK_ALIVE,MYSQL_BACKUP,MYSQL_RESTORE,MYSQL_CMD = range(5
 
 RADIO_MYSQL_BACKUP,RADIO_MYSQL_RESTORE,RADIO_MYSQL_BACKUP_LOGIC,RADIO_MYSQL_BACKUP_FULL,RADIO_MYSQL_BACKUP_INCREMENT = range(5)
 BUTTON_SAVE_TO_LOCAL,BUTTON_SQLFILE_DIR = range(2)
-CHECKBOX_MYSQL_BACKUPCOMPRESS,CHECKBOX_MYSQL_SAVE_LOCAL = range(2)
+CHECKBOX_MYSQL_BACKUPCOMPRESS,CHECKBOX_MYSQL_SAVE_LOCAL,CHECKBOX_CREATE_SLAVE = range(3)
 BACKUP_MODE_MAP = {
     RADIO_MYSQL_BACKUP_LOGIC:MysqlBackupConfig._CONS_BACKUP_MODE_LOGIC,
     RADIO_MYSQL_BACKUP_FULL:MysqlBackupConfig._CONS_BACKUP_MODE_FULL,
@@ -88,11 +89,6 @@ class MysqlWindow(BaseWindow):
         target.user = self.pubMysqlConfig.user
 
     def _setupMysqlPubPannel(self):
-        # self.pubConfigWidget = QtWidgets.QWidget()
-        # self.pubConfigWidget.setFixedHeight(220)
-        # self.pubConfigWidget.setContentsMargins(0,0,0,0)
-        # pubConfigGridLayout = QtWidgets.QGridLayout()
-        # pubConfigGridLayout.setContentsMargins(0,0,0,0)
         self.pubConfigLabel = QLabel()
         self.pubConfigLabel.setAlignment(Qt.AlignCenter)
         self.hostLabel = self._addLabel()
@@ -121,9 +117,6 @@ class MysqlWindow(BaseWindow):
         pubConfigGridLayout.addWidget(self.databaseLineEdit,5,1,1,3)
         pubConfigGridLayout.addWidget(self.passwordLabel,6,0)
         pubConfigGridLayout.addWidget(self.passwordLineEdit,6,1,1,3)
-        # self.pubConfigGridLayout.addWidget(self.logdDirectoryLabel,6,0)
-        # self.pubConfigGridLayout.addWidget(self.logDirLineText,6,1,1,2)
-        # self.pubConfigGridLayout.addWidget(self.findLogDirButton,6,3)
         pubConfigGridLayout.addWidget(self.commitPubConfigButton,7,0,1,4)
         vspacer = QSpacerItem(10,10,QSizePolicy.Minimum,QSizePolicy.Expanding)
         pubConfigGridLayout.addItem(vspacer)
@@ -157,6 +150,12 @@ class MysqlWindow(BaseWindow):
             self._mysqlBackupCompressCheckBox.setEnabled(True)
         else:
             self._mysqlBackupCompressCheckBox.setEnabled(False)
+        if id in ( RADIO_MYSQL_BACKUP_FULL,RADIO_MYSQL_BACKUP_INCREMENT,RADIO_MYSQL_RESTORE):
+            if self._radio_state.get(RADIO_MYSQL_RESTORE,False) and (self._radio_state.get(RADIO_MYSQL_BACKUP_INCREMENT) or self._radio_state.get(RADIO_MYSQL_BACKUP_FULL)):
+                self._mysqlCreateSlaveCheckBox.setEnabled(True)
+            else:
+                self._mysqlCreateSlaveCheckBox.setEnabled(False)
+                self._mysqlCreateSlaveCheckBox.setChecked(False)
 
     def _dealCheckboxCheckState(self,id,state):
         if id == CHECKBOX_MYSQL_BACKUPCOMPRESS:
@@ -164,6 +163,15 @@ class MysqlWindow(BaseWindow):
         if id == CHECKBOX_MYSQL_SAVE_LOCAL:
             self._mysqlBackupLocalPathButton.setEnabled(True if state > 0 else False)
             self._mysqlBackupLocalPathEditLine.setEnabled(True if state > 0 else False)
+        if id == CHECKBOX_CREATE_SLAVE:
+            self._mysqlMasterHostEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlMasterPasswordEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlMasterPortEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlMasterUserEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlReplicaUserEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlReplicaPasswordEditLine.setEnabled(True if state > 0 else False)
+            self._mysqlServerIDEditLine.setEnabled(True if state > 0 else False)
+
 
     def _getFileDir(self,obj,id,fallback=None,args=()):
         directory = super()._getFileDir(obj)
@@ -191,7 +199,6 @@ class MysqlWindow(BaseWindow):
         _config.backup_base_dir = self._mysqlbackupPathEditLine.text().strip()
         _config.operate = BACKUP_OPER_MAP[self._mysqlBackupOperButtonGroup.checkedId()]
         _config.backup_mode = BACKUP_MODE_MAP[self._mysqlBackupModeButtonGroup.checkedId()]
-
         if _config.backup_mode == MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT:
             _config.incremental_basedir = self._mysqlBackupIncrementalBaseDirEditLine.text().strip()
         _config.backup_software = MysqlBackupConfig._CONS_BACKUP_SOFTWARE_XTRABACKUP
@@ -202,10 +209,20 @@ class MysqlWindow(BaseWindow):
                 _config.backup_software = MysqlBackupConfig._CONS_BACKUP_SOFTWARE_MYSQLDUMP
         if _config.operate == MysqlBackupConfig._CONS_OPERATE_RESTORE:
             _config.restore_target_dir = self._mysqlRestoreTargetDirEditLine.text().strip()
+            if _config.backup_mode in ( MysqlBackupConfig._CONS_BACKUP_MODE_FULL , MysqlBackupConfig._CONS_BACKUP_MODE_INCREMENT):
+                _config.create_slave = self._mysqlCreateSlaveCheckBox.isChecked()
+                if _config.create_slave:
+                    _config.master_user = self._mysqlMasterUserEditLine.text().rstrip()
+                    _config.master_port = self._mysqlMasterPortEditLine.text().rstrip()
+                    _config.master_ip = self._mysqlMasterHostEditLine.text().rstrip()
+                    _config.master_password = self._mysqlMasterPasswordEditLine.text().rstrip()
+                    _config.replica_user = self._mysqlReplicaUserEditLine.text().rstrip()
+                    _config.replica_password = self._mysqlReplicaPasswordEditLine.text().rstrip()
         _config.ssh_user = self._mysqlSSHUserEditline.text().strip()
         _config.ssh_port = self._mysqlSSHPortEditline.text().strip()
         _config.ssh_password = self._mysqlSSHPasswordEditline.text().strip()
         _config.mysql_software_path = self._mysqlSoftwarePathEditLine.text().strip()
+        _config.server_id = self._mysqlServerIDEditLine.text().strip()
         if self._mysqlBackupCompressCheckBox.isChecked():
             _config.compress = True
         if self._mysqlBackupToLocalCheckBox.isChecked() and not none_null_stringNone(self._mysqlBackupLocalPathEditLine.text()):
@@ -218,7 +235,7 @@ class MysqlWindow(BaseWindow):
         _result,_msg = _config.checkConfig()
         if not _result:
             log.error(_msg)
-            QMessageBox.warning(self,'输入配置错误',_msg,QMessageBox.Yes,QMessageBox.Yes)
+            QMessageBox.warning(self._window,'输入配置错误',_msg,QMessageBox.Yes,QMessageBox.Yes)
             return
         if _config.operate == MysqlBackupConfig._CONS_OPERATE_BACKUP:
             self._launchBackupMysql(_config)
@@ -251,6 +268,34 @@ class MysqlWindow(BaseWindow):
         self._myqslBackupIncrementRadio = self._createRadioButton('增量备份',lambda checked:self._dealRadioToggled(RADIO_MYSQL_BACKUP_INCREMENT,checked),self._mysqlBackupModeButtonGroup,RADIO_MYSQL_BACKUP_INCREMENT)
         self._mysqlBackupCompressCheckBox = self._addCheckBox('压缩',True)
         self._mysqlBackupToLocalCheckBox = self._addCheckBox('保存到本地',False,lambda state:self._dealCheckboxCheckState(CHECKBOX_MYSQL_SAVE_LOCAL,state))
+        self._mysqlCreateSlaveCheckBox = self._addCheckBox('创建从库',member=lambda state:self._dealCheckboxCheckState(CHECKBOX_CREATE_SLAVE,state))
+        self._mysqlMasterHostEditLine = self._addEditLine()
+        self._mysqlMasterHostEditLine.setPlaceholderText('masterIP')
+        self._mysqlMasterPortEditLine = self._addEditLine()
+        self._mysqlMasterPortEditLine.setPlaceholderText('masterPort')
+        self._mysqlMasterUserEditLine = self._addEditLine()
+        self._mysqlMasterUserEditLine.setPlaceholderText('masterUser')
+        self._mysqlMasterPasswordEditLine = self._addEditLine(echomode=QtWidgets.QLineEdit.Password)
+        self._mysqlMasterPasswordEditLine.setPlaceholderText('masterPassword')
+        self._mysqlReplicaUserEditLine = self._addEditLine()
+        self._mysqlReplicaUserEditLine.setPlaceholderText('replicaUser')
+        self._mysqlReplicaPasswordEditLine = self._addEditLine(echomode=QtWidgets.QLineEdit.Password)
+        self._mysqlReplicaPasswordEditLine.setPlaceholderText('replicaPassword')
+        self._mysqlServerIDEditLine = self._addEditLine()
+        self._mysqlServerIDEditLine.setPlaceholderText('serverID')
+        self._mysqlMasterConfigGridLayout = QtWidgets.QGridLayout()
+        self._mysqlMasterConfigGridLayout.setContentsMargins(0,0,0,0)
+        self._mysqlMasterConfigGridLayout.setSpacing(2)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlMasterHostEditLine,0,0)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlMasterPortEditLine,0,1)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlMasterUserEditLine,0,2)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlMasterPasswordEditLine,0,3)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlReplicaUserEditLine,1,0)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlReplicaPasswordEditLine,1,1)
+        self._mysqlMasterConfigGridLayout.addWidget(self._mysqlServerIDEditLine,1,2)
+        _widget = QtWidgets.QWidget()
+        _widget.setContentsMargins(0,0,0,0)
+        _widget.setLayout(self._mysqlMasterConfigGridLayout)
         self._mysqlSSHUserLabel = self._addLabel("ssh用户:")
         self._mysqlSSHPasswordLabel = self._addLabel("ssh密码:")
         self._mysqlSSHPortLabel = self._addLabel("ssh端口:")
@@ -290,6 +335,7 @@ class MysqlWindow(BaseWindow):
         self.backupMysqlGridLayout.addWidget(self._mysqlSSHPasswordEditline,4,1,1,2)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupCompressCheckBox,5,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupToLocalCheckBox,5,1)
+        self.backupMysqlGridLayout.addWidget(self._mysqlCreateSlaveCheckBox,5,2)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathLabel,6,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlbackupPathEditLine,6,1,1,3)
         self.backupMysqlGridLayout.addWidget(self._mysqlBackupPathButton,6,4)
@@ -305,18 +351,29 @@ class MysqlWindow(BaseWindow):
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathLabel,10,0)
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathEditLine,10,1,1,3)
         self.backupMysqlGridLayout.addWidget(self._mysqlSoftwarePathButton,10,4)
-        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,11,0)
+        self.backupMysqlGridLayout.addWidget(_widget,11,0,2,5)
+        self.backupMysqlGridLayout.addWidget(self.launchBackupMysqlButton,13,0)
+        vspacer = QSpacerItem(20,40,QSizePolicy.Minimum,QSizePolicy.Expanding)
+        self.backupMysqlGridLayout.addItem(vspacer)
+        self.backupMysqlQWidget.setContentsMargins(0,0,0,0)
         self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
         self.occupyTestData()
 
     def occupyTestData(self):
-        # self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
-        # self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
-        # self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-03-18')
-        # self._mysqlBackupIncrementalBaseDirEditLine.setText('/data/backup/my3578/bak')
-        # self._mysqlSSHUserEditline.setText('mysql')
-        # self._mysqlSSHPasswordEditline.setText('8845')
-        # self._mysqlSSHPortEditline.setText('22')
+        self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
+        self._mysqlSoftwarePathEditLine.setText('/usr/local/mysql-5.7.23-el7-x86_64')
+        self._mysqlbackupPathEditLine.setText('/data/backup/my3578/2020-05-29')
+        self._mysqlBackupIncrementalBaseDirEditLine.setText('/data/backup/my3578/bak')
+        self._mysqlSSHUserEditline.setText('root')
+        self._mysqlSSHPasswordEditline.setText('8845')
+        self._mysqlSSHPortEditline.setText('22')
+        self._mysqlMasterPasswordEditLine.setText('8845')
+        self._mysqlMasterHostEditLine.setText('10.45.156.210')
+        self._mysqlMasterPortEditLine.setText('3578')
+        self._mysqlMasterUserEditLine.setText('super')
+        self._mysqlReplicaUserEditLine.setText('repl')
+        self._mysqlReplicaPasswordEditLine.setText('8845')
+        self._mysqlServerIDEditLine.setText('2')
         pass
 
 
@@ -399,13 +456,6 @@ class MysqlWindow(BaseWindow):
         # mysql动作面板tab
         self._setupMysqlActionBox()
         self.actionBox.setCurrentIndex(4)
-        # mysql tabwidget 布局
-        # qvblayout = QVBoxLayout()
-        # qvblayout.addWidget(self.pubConfigWidget)
-        # qvblayout.addWidget(self.mysqlActionBox)
-        # qvblayout.setStretchFactor(self.mysqlActionBox,100)
-        # self._action_pannel.setLayout(qvblayout)
-        # self._action_pannel.layout().setContentsMargins(0,0,0,0)
         self._checkButtonEnable()
         #文字显示
         self.retranslateUi()

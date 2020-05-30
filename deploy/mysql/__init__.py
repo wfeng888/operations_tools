@@ -29,6 +29,8 @@ class CheckMysqlBackupFileException(BackupException):
 class ReadBackupParamException(BackupException):
     _msg = 'read backup param failed,please check backup param file '
 
+class ReadRemoteFileContentException(BackupException):
+    _msg = 'read backup param failed,please check backup param file '
 
 class ReadBackupConfigFileException(BackupException):
     _msg = 'read backup param failed,please check backup config file '

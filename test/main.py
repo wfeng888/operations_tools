@@ -16,7 +16,7 @@
 # from pathlib import Path
 #
 # from deploy.until import _sort, valid
-from public_module.config import MysqlBackupConfig
+
 #
 #
 # def list_sqlfile_new(filepath):
@@ -267,12 +267,15 @@ from configparser import ConfigParser
 #     print(type(s))
 
 if '__main__' == __name__:
-    m1 = MysqlBackupConfig()
-    m2 = MysqlBackupConfig()
-    m1.port=3306
-    m2.port=3578
-    print(m1.port)
-    print(m2.port)
+    s = 'binlog.000007   195     bf3779f6-c970-11e9-bcae-fa163e0618ed:1-212'
+    d = s.split()
+    for i in d:
+        print(i)
+    s = '/database/my3578/data'
+    n = '/database/my3579'
+    o = '/database/my3578'
+    s = s.replace('3578','3579')
+    print(s)
     # test_list()
     # test_item()
     # test_parser_set()

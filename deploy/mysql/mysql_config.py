@@ -60,12 +60,20 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
     socket_file:str
     backup_sql_file:str
     mysql_software_path:str
+    master_ip:str
+    master_port:int
+    master_user:str
+    master_password:str
+    create_slave:bool
+    replica_user:str
+    replica_password:str
+    server_id:str
 
     def checkConfig(self):
         result = True
         result_msg = ''
         if (none_null_stringNone(self.host) or none_null_stringNone(self.port) or none_null_stringNone(self.ssh_password) \
-                or none_null_stringNone(self.ssh_port) or none_null_stringNone(self.ssh_user) or none_null_stringNone(self.backup_dir)):
+                or none_null_stringNone(self.ssh_port) or none_null_stringNone(self.ssh_user) or none_null_stringNone(self.backup_base_dir)):
             result = False
             result_msg += ' host or port  or ssh_user or ssh_password or ssh_port is null '
         if self.operate == self._CONS_OPERATE_BACKUP:
@@ -84,14 +92,48 @@ class MysqlBackupConfig(MysqlConfig,BackupConfig):
                 if (none_null_stringNone(self.user) or none_null_stringNone(self.password)):
                     result = False
                     result_msg += ' user or password is null '
-            elif self.operate == self._CONS_BACKUP_MODE_INCREMENT:
-                if none_null_stringNone(self.backup_base_dir):
-                    result = False
-                    result_msg += ' user or password is null '
+            else:
+                if self.create_slave:
+                    if ( none_null_stringNone(self.master_ip) or none_null_stringNone(self.master_password) or none_null_stringNone(self.master_port)\
+                             or none_null_stringNone(self.master_user) or none_null_stringNone(self.replica_password) or none_null_stringNone(self.replica_user) \
+                            or none_null_stringNone(self.server_id)):
+                        result = False
+                        result_msg += ' create slave ,but master info is null  '
+                if self.operate == self._CONS_BACKUP_MODE_INCREMENT:
+                    if none_null_stringNone(self.backup_base_dir):
+                        result = False
+                        result_msg += ' user or password is null '
         return result,result_msg
 
 
+class MasterSlaveConfig():
+    master_conn_user:str
+    master_conn_password:str
+    master_host:str
+    master_port:int
+    slave_conn_user:str
+    slave_conn_password:str
+    slave_host:str
+    slave_port:str
+    repl_user:str
+    repl_password:str
+    gtid_enable:bool
+    binlog_file:str
+    binlog_pos:int
 
+    def check_config(self):
+        result = True
+        result_msg = ''
+        if (none_null_stringNone(self.master_conn_user) or none_null_stringNone(self.master_conn_password) or none_null_stringNone(self.master_host) or \
+                none_null_stringNone(self.master_port) or none_null_stringNone(self.slave_conn_user) or none_null_stringNone(self.slave_conn_password) or \
+                none_null_stringNone(self.slave_host) or none_null_stringNone(self.slave_port)):
+            result = False
+            result_msg += ' user or password or host or port is null '
+        if not self.gtid_enable:
+            if (none_null_stringNone(self.binlog_file)  or none_null_stringNone(self.binlog_pos) ):
+                result = False
+                result_msg += ' binlog file or binlog pos if null '
+        return result,result_msg
 
 
 # def getConfig():

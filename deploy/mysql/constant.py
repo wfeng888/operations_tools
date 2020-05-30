@@ -23,7 +23,7 @@ MYSQL57_CNF_VAR_PREFERENCE = {
               'innodb_flush_log_at_trx_commit','sync_binlog','thread_cache_size','max_connections','group_concat_max_len',
               'event_scheduler','show_compatibility_56','read_only','super_read_only','log-bin-trust-function-creators',
               'slow-query-log',['slow_query_log_file',None,LOG_PATH],'long_query_time','log_slow_slave_statements','binlog_format',
-              'expire_logs_days',['log_bin',None,LOG_PATH],['log_bin_index',None,LOG_PATH],['log_error',None,LOG_PATH],['relay_log',None,LOG_PATH],
+              'expire_logs_days',['log_bin','log_bin_basename',LOG_PATH],['log_bin_index',None,LOG_PATH],['log_error',None,LOG_PATH],['relay_log',None,LOG_PATH],
               ['relay_log_index',None,LOG_PATH]
               ,['relay_log_info_file',None,LOG_PATH],['general_log_file',None,LOG_PATH],'master_info_repository','relay_log_info_repository','log_slave_updates',
               'gtid_mode',

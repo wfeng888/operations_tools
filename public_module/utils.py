@@ -55,6 +55,11 @@ def path_join(basepath,suffixpath,sep='/'):
                 s += i
         return basepath + s
 
+def rpartition(target:str,sep,ignorelast=False):
+    if not ignorelast:
+        if target[-1] == sep:
+            target = target[:-1]
+    return target.rpartition(sep)
 
 def containString(param):
     re.findall()
