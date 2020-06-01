@@ -357,7 +357,7 @@ class MysqlWindow(BaseWindow):
         self.backupMysqlGridLayout.addItem(vspacer)
         self.backupMysqlQWidget.setContentsMargins(0,0,0,0)
         self.backupMysqlQWidget.setLayout(self.backupMysqlGridLayout)
-        self.occupyTestData()
+        # self.occupyTestData()
 
     def occupyTestData(self):
         self._mysqlRestoreTargetDirEditLine.setText('/database/my3579')
@@ -374,7 +374,6 @@ class MysqlWindow(BaseWindow):
         self._mysqlReplicaUserEditLine.setText('repl')
         self._mysqlReplicaPasswordEditLine.setText('8845')
         self._mysqlServerIDEditLine.setText('2')
-        pass
 
 
     def _setupRestoreMysqlWidget(self):
