@@ -17,7 +17,6 @@ def initial_only(func):
     def _inner_func(self,*args,**kwargs):
         self._init_client()
         return func(self,*args,**kwargs)
-
     return _inner_func
 
 class ParamikoConnection(ConnectionBase):

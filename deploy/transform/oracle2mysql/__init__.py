@@ -1,0 +1,3 @@
+from enum import Enum
+
+stage = Enum('Stage',names='PREPARE,CREATE_UPD_TABLES,INIT_DATA,PREPARE_VERIFY,MAKE_UPD_DATA,TRANSPORT_DATA,FINISH_VERIFY',start=1)

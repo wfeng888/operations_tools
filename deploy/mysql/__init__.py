@@ -1,3 +1,7 @@
+from mysql.connector import Error
+
+import log
+from public_module.sql_execute import AbstractSQLExecute, initial_only
 from public_module.ssh_connect import ConnectionBase
 
 
@@ -54,3 +58,52 @@ class BackupFailedException(BackupException):
 def checkStatAndRaise(stat,cls,*args):
     if stat != ConnectionBase.SHELL_SUCCESS:
         raise cls(*args)
+
+
+
+class MySQLSQLExecute(AbstractSQLExecute):
+
+    def __init__(self,connection=None,ds=None):
+        super(MySQLSQLExecute, self).__init__(connection,ds)
+
+
+    def exception_handle(self,e) -> int:
+        if isinstance(e,Error):
+            log.error(self._formatErrorMsg(e))
+            return 1
+        return -1
+
+    def _formatErrorMsg(self,e):
+        return ('error_num:%d,error_msg:%s' %(e.errno,e.msg))
+
+
+    def with_rows(self,cursor):
+        return cursor.with_rows
+
+    @initial_only
+    def isDBExists(self,dbname):
+        try:
+            self._conn.database = dbname
+            return True
+        except Error as e:
+            log.error(self._formatErrorMsg(e))
+        return False
+
+    def getVariable(self,variablename,globalv=False):
+        stat = 'select @@{}'.format(variablename)
+        try:
+            return self.query(stat)[0][0]
+        except Error as e:
+            log.error(self._formatErrorMsg(e))
+            return None
+
+
+    @initial_only
+    def batch_exec(self,statements):
+        _stats = ''
+        if not isinstance(statements,(tuple,list)):
+            statements = (statements,)
+        for _item in statements:
+            _stats += _item
+        with self._conn.cursor() as cursor:
+            return cursor.execute(_stats,multi=True)

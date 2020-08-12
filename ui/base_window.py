@@ -46,7 +46,8 @@ class BaseWindow(object):
         else:
             keys = self.setEnable.keys()
         for key in keys:
-            self.setEnable[key]()
+            if self.setEnable.get(key,None):
+                self.setEnable[key]()
 
     def _createRadioButton(self,title,member,buttongroup=None,id=None,checked=False):
         radioButton = QtWidgets.QRadioButton()

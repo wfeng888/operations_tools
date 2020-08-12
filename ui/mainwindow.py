@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import QSizePolicy,  QSplitter, QVBoxLayout
 
 from ui.es_window import ESWindow
 from ui.mysql_window import MysqlWindow
-
+from ui.oracle_window import OracleWindow
 
 
 class Ui_MainWindow(object):
@@ -72,6 +72,8 @@ class Ui_MainWindow(object):
         mysql.setupUi()
         es = ESWindow(self,self.esQWidget,self.logCommandTabWidget)
         es.setupUi()
+        oracle = OracleWindow(self,self.oracleQWidget,self.logCommandTabWidget)
+        oracle.setupUi()
 
     def retranslateUi(self, MainWindow):
         self._translate = QtCore.QCoreApplication.translate

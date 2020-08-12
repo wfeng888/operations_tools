@@ -9,6 +9,7 @@ import log
 from public_module import to_text
 
 getCurrentThreadID = QThread.currentThread
+get_now_milli_time = lambda: int(time.time() * 1000)
 
 def formatDate(format='%Y-%m-%d'):
     return time.strftime(format,time.localtime())
@@ -104,3 +105,10 @@ def whichPath(software,sshconnect):
                 return to_text(tdata).replace('\r','').replace('\n','')
         return data
     return None
+
+
+def formatErrorMsg(e):
+    try:
+        return 'errno:{},msg:{},args:{}'.format(str(e.errno),e.msg,e.args)
+    except BaseException:
+        return traceback.format_exc()
