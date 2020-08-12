@@ -366,11 +366,11 @@ from t_device_group_member a,vcms_upgrd_devc_map_tab b,vcms_upgrd_devc_map_tab c
 where a.group_id = b.old_device_id
 and   a.device_id = c.old_device_id''',ds.MYSQL,'''insert into usmsc.t_video_devicegroupmember (`group_id`,`device_id`,`device_type`,`cur_state`,`category_id`,`group_device_type`) values (%s,%s,%s,%s,%s,%s)'''),
         #大客户映射到部门
-        (oper.INSERT,ds.ORACLE,'''select  to_number(substr(a.enterprise_id,-5)) dept_id,a.enterprise_name dept_name,0 up_dept_id,a.prefix description,0 dept_kind,a.max_user_number dept_user_cnt,0 vehicle_cnt,a.cmcc_fg,
-(select b.new_office_id from vcms_upgrd_office_map_tab b where a.office_id=b.old_office_id)
-from T_ENTERPRISE a
-where a.enterprise_id not in ('000001')
-and   a.istateflag in (1)''',ds.MYSQL,'''insert into usmsc.t_scim_dept (`dept_id`,`dept_name`,`up_dept_id`,`description`,`dept_kind`,`dept_user_cnt`,`vehicle_cnt`,`cmcc_fg`,`precinct_id`) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)'''),
+#         (oper.INSERT,ds.ORACLE,'''select  to_number(substr(a.enterprise_id,-5)) dept_id,a.enterprise_name dept_name,0 up_dept_id,a.prefix description,0 dept_kind,a.max_user_number dept_user_cnt,0 vehicle_cnt,a.cmcc_fg,
+# (select b.new_office_id from vcms_upgrd_office_map_tab b where a.office_id=b.old_office_id)
+# from T_ENTERPRISE a
+# where a.enterprise_id not in ('000001')
+# and   a.istateflag in (1)''',ds.MYSQL,'''insert into usmsc.t_scim_dept (`dept_id`,`dept_name`,`up_dept_id`,`description`,`dept_kind`,`dept_user_cnt`,`vehicle_cnt`,`cmcc_fg`,`precinct_id`) values (%s,%s,%s,%s,%s,%s,%s,%s,%s)'''),
         #用户信息
         (oper.INSERT,ds.ORACLE,'''with tmp_enterprise as (
 select t1.user_id,case t1.enterprise_id when '000001' then 1 else to_number(substr(t1.enterprise_id,-5)) end enterprise_id
@@ -396,6 +396,14 @@ from t_user a where (a.user_name not in ('global_admin','admin') and a.user_id n
 # where a.device_id = b.old_device_id''',ds.MYSQL,'''insert into usmsc.t_scim_dept_device (`dept_id`,`device_id`,`device_kind`) values (%s,%s,%s)'''),
 #         #这里要将device_kind从t_cfg_device表更新回来
 #         (oper.EXEC,ds.MYSQL,'''update usmsc.t_scim_dept_device a,t_cfg_device b set a.device_kind=b.device_kind where a.device_id=b.device_id'''),
+        (oper.INSERT,ds.ORACLE,'''select a1.device_id,case (select user_name from t_user nt where nt.user_id = t1.user_id ) 
+when  'admin' then '11000000000' when 'global_admin' then '12000000000' else t1.user_id end user_id,
+ '1111111' privilege_flag, b1.device_name,null  device_kind,null device_type, nvl(c1.new_office_id,'010100000') precinct_id,null station_id
+from (select n1.user_id,n1.enterprise_id from t_client_admin n1 union select n2.user_id,n2.enterprise_id from  t_client_user n2) t1,
+    t_enterprise_device a1,device b1 ,vcms_upgrd_office_map_tab c1
+where t1.enterprise_id = a1.enterprise_id
+and   a1.device_id = b1.device_id
+and   c1.old_office_id(+) = b1.office_id''',ds.MYSQL,'''insert into usmsc.t_cfg_userdevice (`device_id`,`user_id`,`privilege_flag`,`device_name`,`device_kind`,`device_type`,`precinct_id`,`station_id`) values (%s,%s,%s,%s,%s,%s,%s,%s)'''),
         #用户组
         (oper.INSERT,ds.ORACLE,'''with tmp_enterprise as (
 select t1.user_id,case t1.enterprise_id when '000001' then 1 else to_number(substr(t1.enterprise_id,-5)) end enterprise_id
@@ -419,13 +427,15 @@ and  a.user_group_id = c.old_group_id''',ds.MYSQL,'''insert into usmsc.t_cfg_use
 from t_group_device a,vcms_upgrd_usrgrp_map_tab b
 where a.user_group_id = b.old_group_id''',ds.MYSQL,'''insert into usmsc.t_cfg_usergroupobject (`usergroup_id`,`object_id`,`object_flag`,`privilege_flag`,`select_flag`) values (%s,%s,%s,%s,%s)'''),
         #用户设备权限
+        #因为一个设备可以对应多个大客户，但是一个设备仅可以对应一个部门，因此，大客户不再映射到部门，取消大客户的概念。将“设备-大客户-用户”的三层结构修改为“设备-用户”两层结构。
+        #这里在原有的数据基础上增加大客户设备到用户的映射
         (oper.INSERT,ds.ORACLE,'''select b.new_device_id device_id,
 case (select user_name from t_user nt where nt.user_id = a.user_id ) 
 when  'admin' then '11000000000' when 'global_admin' then '12000000000' else a.user_id end user_id,
  a.privilege_flag, null device_name,null device_kind,null device_type,
  (select n1.new_office_id  from vcms_upgrd_office_map_tab n1 where n1.old_office_id = a.office_id) precinct_id,null station_id
  from  T_USER_DEVICE a,vcms_upgrd_devc_map_tab b  
- where a.device_id = b.old_device_id''',ds.MYSQL,'''insert into usmsc.t_cfg_userdevice (`device_id`,`user_id`,`privilege_flag`,`device_name`,`device_kind`,`device_type`,`precinct_id`,`station_id`) values (%s,%s,%s,%s,%s,%s,%s,%s)'''),
+ where a.device_id = b.old_device_id''',ds.MYSQL,'''replace into usmsc.t_cfg_userdevice (`device_id`,`user_id`,`privilege_flag`,`device_name`,`device_kind`,`device_type`,`precinct_id`,`station_id`) values (%s,%s,%s,%s,%s,%s,%s,%s)'''),
         (oper.EXEC,ds.MYSQL,'''update usmsc.t_cfg_userdevice a,t_cfg_device b set a.device_kind=b.device_kind,a.device_type=b.device_type,a.device_name=b.device_name where a.device_id=b.device_id'''),
         #配置admin用户的设备权限
         (oper.EXEC,ds.MYSQL,'''replace into usmsc.t_cfg_userdevice select a.device_id,'11000000000','1111111',a.device_name,a.device_kind,a.device_type,a.precinct_id,'' from t_cfg_device a'''),
