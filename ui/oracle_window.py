@@ -16,7 +16,7 @@ class OracleWindow(BaseWindow):
         self.initAction()
         self._setupActionBox()
         self.retranslateUi()
-        # self._initButtonEnable()
+        self._initButtonEnable()
         # self._repositorys = []
         # self._snapshots = {}
         self._occupyTestData()
@@ -53,9 +53,18 @@ class OracleWindow(BaseWindow):
         self.pubConfigWidget.setLayout(pubConfigGridLayout)
 
     def _initButtonEnable(self):
-        self.setEnable = {
-            TRANSFORM_TO_MYSQL:lambda :self.transformButton.setEnabled(False if  self._isTaskBusy(TRANSFORM_TO_MYSQL) else True)
+        self._buttons = {
+            TRANSFORM_TO_MYSQL:self.transformButton
         }
+
+        def _buttonEnable(id):
+            if self._buttons.get(id,None):
+                self._buttons[id].setEnabled(False if  self._isTaskBusy(TRANSFORM_TO_MYSQL) else True)
+
+        self.setEnable = {
+            TRANSFORM_TO_MYSQL:lambda :_buttonEnable(TRANSFORM_TO_MYSQL)
+        }
+
 
     def initAction(self):
 
