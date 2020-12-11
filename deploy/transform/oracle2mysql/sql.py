@@ -63,7 +63,7 @@ c_ec_cut constant number  := -6;
 c_ec_length constant number  := 7;
 
 c_pf_cut constant number  := -3;
-c_pf_length constant number  := 5;
+c_pf_length constant number  := 4;
 
 c_vw constant varchar2(7) := '00177';
 c_vw_cut constant number  := -6;
